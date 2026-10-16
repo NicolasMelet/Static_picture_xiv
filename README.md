@@ -69,7 +69,7 @@ jamais dans le dépôt GitHub, seul le modèle `.env.example`, sans valeurs, y e
 | `team_name` | Texte affiché sous le titre (ex. `Wipe Lotus`) |
 | `zone_id` | Contenu suivi (modifiable ensuite depuis l'icône) |
 | `difficulty` | `101` = Sadique, `100` = Normal, `null` = tout (ignoré pour les ultimes) |
-| `fflogs.static_id` | ID du static : le nombre dans l'adresse de sa page FFLogs (`fflogs.com/guild/id/12345`). Laisser `null` pour le retrouver avec les deux lignes suivantes |
+| `fflogs.static_id` | ID du static Wipe Lotus : `141085` (le nombre dans l'adresse <https://fr.fflogs.com/guild/id/141085>), déjà rempli. Mettre `null` pour le retrouver avec les deux lignes suivantes |
 | `fflogs.static_name` | Nom du static (`Wipe Lotus`) |
 | `fflogs.guild_name` / `server` / `region` | Free Company FFLogs dont dépend le static (inutile si `static_id` est rempli) |
 | `fflogs.raid_team_id` | Optionnel : ne suivre qu'une « équipe » (raid team) du static, `null` = tout le static |
