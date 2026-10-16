@@ -17,6 +17,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import webbrowser
 from pathlib import Path
 
@@ -458,7 +459,7 @@ def selftest():
                "bossPercentage": 42.0, "lastPhase": 1}]
     out = DATA / "output" / "selftest.png"
     bg, path = load_background(0, None, DATA / "selftest-images", BUNDLED_IMAGES)
-    assert path and path.name == "default.png", path
+    assert path and path.stem == "default", path
     render(compute(zone, [{"fights": fights}]), "Selftest", out, bg)
     assert out.stat().st_size > 0
     return 0
@@ -471,7 +472,13 @@ def main():
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
     if args.selftest:
-        sys.exit(selftest())
+        # Jamais de boîte de dialogue ici : sur la machine de build, personne ne peut cliquer.
+        try:
+            sys.exit(selftest())
+        except Exception:
+            traceback.print_exc()
+            (DATA / "selftest-error.txt").write_text(traceback.format_exc(), encoding="utf-8")
+            sys.exit(1)
     if first_run():
         return
     load_env()
