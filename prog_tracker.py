@@ -24,7 +24,7 @@ from pathlib import Path
 from fflogs import FFLogs
 from progress import compute
 from publisher import GitHubPages
-from images import create_tree, load_background
+from images import create_skeleton, ensure_fight_dir, load_background
 from render import render
 
 FROZEN = getattr(sys, "frozen", False)          # vrai dans l'exécutable PyInstaller
@@ -238,10 +238,12 @@ class Tracker:
         prog = compute(zone, loaded, cfg.get("difficulty"),
                        cfg.get("ultimate_pulls", "cumulative"), content)
         try:
-            create_image_tree(zone, content, prog["encounters"])
+            for e in prog["encounters"]:      # dossier dans « Autres contenus » s'il manque
+                ensure_fight_dir(IMAGES, zone["name"], e["name"],
+                                 [p["name"] for p in e["phases"] if not p.get("isIntermission")])
         except OSError:
             log.exception("Impossible de créer les dossiers d'images")
-        bg, bg_path = load_background(prog["content"], prog["boss_index"], prog["phase"],
+        bg, bg_path = load_background(prog["title"], zone["name"], prog["phase"],
                                       IMAGES, BUNDLED_IMAGES)
         log.info("Fond : %s", bg_path)
         render(prog, cfg.get("team_name", ""), OUTPUT, bg)
@@ -321,13 +323,16 @@ class Tracker:
 
 # --- Contenus et dossiers d'images -----------------------------------------------
 
-def is_multi_ultimate(zone):
-    """Zone regroupant plusieurs ultimes (ex. « Ultimates (Legacy) ») : on choisit le combat."""
-    return "ultimate" in zone["name"].lower() and len(zone["encounters"]) > 1
+def is_pick_one(zone):
+    """Zone regroupant plusieurs combats indépendants (ultimes « Legacy », défis extrêmes...) :
+    on y choisit un combat précis au lieu de suivre toute la zone."""
+    z = zone["name"].lower()
+    return len(zone["encounters"]) > 1 and any(
+        k in z for k in ("ultimate", "extreme", "trial", "unreal"))
 
 
 def selected_content(zone, encounter_id=None):
-    """Zone restreinte au combat choisi, et nom du dossier d'images correspondant."""
+    """Zone restreinte au combat choisi, et nom affiché du contenu."""
     if encounter_id:
         encs = [e for e in zone["encounters"] if e["id"] == encounter_id]
         if encs:
@@ -335,60 +340,12 @@ def selected_content(zone, encounter_id=None):
     return zone, zone["name"]
 
 
-def cached_phases():
-    """Phases connues (encounterID -> liste) d'après les rapports déjà téléchargés."""
-    known = {}
-    for path in (CACHE / "fights").glob("*.json"):
-        rep = (read_json(path) or {}).get("report") or {}
-        for ph in rep.get("phases") or []:
-            if len(ph.get("phases") or []) > len(known.get(ph["encounterID"], [])):
-                known[ph["encounterID"]] = ph["phases"]
-    return known
-
-
-def _real_names(phases):
-    return [p["name"] for p in phases or [] if not p.get("isIntermission")]
-
-
-def create_image_tree(zone, content, encounters, known=None):
-    """Crée les dossiers d'images du contenu (boss et phases connus)."""
-    from progress import last_boss_counts_double
-    known = known or {}
-    encs = [dict(e, phases=e.get("phases") or known.get(e["id"], [])) for e in encounters]
-    if len(encs) == 1:
-        return create_tree(IMAGES, content, phases=_real_names(encs[0]["phases"]))
-    double = last_boss_counts_double(encs)
-    bosses = []
-    for i, e in enumerate(encs, start=1):
-        names = _real_names(e["phases"])
-        if i == len(encs) and double and len(names) < 2:
-            names = ["Phase 1", "Phase 2"]
-        bosses.append((i, e["name"], names))
-    return create_tree(IMAGES, content, bosses=bosses)
-
-
-def create_all_image_trees(api):
-    """Dossiers pour tous les contenus sadiques et ultimes connus de FFLogs."""
-    known = cached_phases()
-    count = 0
-    for _, zones in zone_catalog(api):
-        for z in zones:
-            name = z["name"].lower()
-            if "savage" not in name and "ultimate" not in name:
-                continue
-            targets = [selected_content(z, e["id"]) for e in z["encounters"]] \
-                if is_multi_ultimate(z) else [(z, z["name"])]
-            for zone, content in targets:
-                if len(zone["encounters"]) == 1:
-                    eid = zone["encounters"][0]["id"]
-                    if eid not in known:
-                        try:
-                            known[eid] = api.encounter_phases(eid)
-                        except Exception as e:
-                            log.info("Phases inconnues pour %s : %s", content, e)
-                create_image_tree(zone, content, zone["encounters"], known)
-                count += 1
-    return count
+def setup_images():
+    """Crée l'arborescence des images (catalogue) ; appelée à chaque lancement."""
+    try:
+        create_skeleton(IMAGES)
+    except OSError:
+        log.exception("Impossible de créer les dossiers d'images")
 
 
 # --- Icône de la barre des tâches --------------------------------------------
@@ -411,7 +368,7 @@ def run_tray(tracker):
     from PIL import Image
 
     def zone_item(z):
-        if is_multi_ultimate(z):         # un sous-menu pour choisir l'ultime
+        if is_pick_one(z):               # un sous-menu pour choisir le combat
             return pystray.MenuItem(z["name"], pystray.Menu(*[encounter_item(z, e)
                                                               for e in z["encounters"]]))
         return pystray.MenuItem(
@@ -424,16 +381,6 @@ def run_tray(tracker):
             e["name"], lambda icon, item: tracker.set_zone(z["id"], e["id"]),
             checked=lambda item: tracker.cfg.get("encounter_id") == e["id"], radio=True)
 
-    def create_folders(icon, item):
-        def work():
-            try:
-                n = create_all_image_trees(tracker.api)
-                log.info("Dossiers d'images créés pour %d contenus", n)
-                open_file(IMAGES)
-            except Exception:
-                log.exception("Création des dossiers d'images")
-                icon.notify("Échec de la création des dossiers (voir le journal).")
-        threading.Thread(target=work, daemon=True).start()
 
     catalog = zone_catalog(tracker.api)
     zone_menu = pystray.Menu(*[
@@ -454,7 +401,7 @@ def run_tray(tracker):
         set_autostart(not autostart_enabled())
 
     def open_images(icon, item):
-        IMAGES.mkdir(parents=True, exist_ok=True)
+        setup_images()
         open_file(IMAGES)
 
     def show_ids(icon, item):
@@ -471,7 +418,6 @@ def run_tray(tracker):
         pystray.MenuItem("Trouver les ID (static, contenus)", show_ids),
         pystray.MenuItem("Ouvrir le dossier des réglages", lambda i, it: open_file(DATA)),
         pystray.MenuItem("Ouvrir le dossier des images", open_images),
-        pystray.MenuItem("Créer les dossiers d'images (raids et ultimes)", create_folders),
         pystray.MenuItem("Lancer au démarrage de Windows", toggle_autostart,
                          checked=lambda item: autostart_enabled()),
         pystray.Menu.SEPARATOR,
@@ -558,7 +504,10 @@ def selftest():
     fights = [{"encounterID": 0, "kill": False, "fightPercentage": 42.0,
                "bossPercentage": 42.0, "lastPhase": 1}]
     out = DATA / "output" / "selftest.png"
-    bg, path = load_background("Selftest", 1, None, DATA / "selftest-images", BUNDLED_IMAGES)
+    tmp = DATA / "selftest-images"
+    create_skeleton(tmp)
+    assert (tmp / "1 - Ultimates" / "6. FRU - Futures Rewritten" / "Phase 5 - Pandora").is_dir()
+    bg, path = load_background("Selftest", "Selftest", None, tmp, BUNDLED_IMAGES)
     assert path and path.stem == "default", path
     render(compute(zone, [{"fights": fights}]), "Selftest", out, bg)
     assert out.stat().st_size > 0
@@ -583,6 +532,7 @@ def main():
         return
     load_env()
     cfg = load_config()
+    setup_images()
     if args.setup:
         write_setup(cfg)
     elif args.once:

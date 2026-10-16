@@ -95,44 +95,55 @@ Test manuel (génère et publie une fois) : `ProgFFLogs.exe --once`.
 
 ### Images de fond
 
-Aucune image n'est téléchargée depuis FFLogs : les fonds sont vos images, rangées par dossiers
-dans `%APPDATA%\ProgFFLogs\images` (menu de l'icône → **Ouvrir le dossier des images**).
-
-Menu de l'icône → **Créer les dossiers d'images (raids et ultimes)** crée un dossier par contenu
-sadique et ultime, avec les vrais noms FFLogs, un sous-dossier par boss et un par phase quand le
-combat en a plusieurs. Le dossier du contenu suivi est aussi créé à chaque mise à jour.
+Aucune image n'est téléchargée depuis FFLogs : les fonds sont vos images, rangées dans
+`%APPDATA%\ProgFFLogs\images` (menu de l'icône → **Ouvrir le dossier des images**). Toute
+l'arborescence est créée au lancement du programme ; elle est aussi visible dans le dossier
+[`images/`](images) du dépôt.
 
 ```
 images/
-  default.jpg                     contenu sans image (remplace le chaton)
-  AAC Heavyweight (Savage)/
-    fond.jpg                      facultatif : image commune à tout le contenu
-    1 - Vamp Fatale/              image du boss 1
-    ...
-    4 - Lindwurm/
-      Phase 1/                    dernier boss : une image par phase
-      Phase 2/
-  Futures Rewritten (Ultimate)/
-    Phase 1/  ...  Phase 5/       ultime : une image par phase
-  The Omega Protocol/             ultimes « Legacy » : un dossier par ultime
-    Phase 1/  ...
+  default.jpg                                   contenu sans image (le chaton)
+  LISEZ-MOI.txt                                 rappel des règles ci-dessous
+  1 - Ultimates/
+    1. UCOB - The Unending Coil of Bahamut/
+      Phase 1 - Twintania/ ... Phase 5 - Golden Bahamut/
+    2. UWU ... 7. DMU - Dancing Mad/            un dossier par ultime, un par phase
+  2 - Raids sadiques/
+    2 - Heavensward/ ... 6 - Dawntrail/         extension
+      3 - AAC Heavyweight/                      palier
+        M9S - Vamp Fatale/                      un dossier par boss
+        M12S - Lindwurm/
+          Phase 1/  Phase 2/                    dernier boss Arcadion : deux phases
+  3 - Extrêmes/
+    1 - A Realm Reborn/ ... 6 - Dawntrail/
+      EX1 - Valigarmanda/                       un dossier par défi extrême
+  4 - Autres contenus/                          combats absents du catalogue (automatique)
 ```
 
-Déposez une image (n'importe quel nom, `.png`, `.jpg`, `.jpeg`, `.webp`) dans le bon dossier. Le
-programme prend la plus précise disponible : **phase → boss → contenu → default**. Il n'est donc
-pas nécessaire de remplir chaque phase : une image dans le dossier du boss ou du contenu suffit.
+Déposez une image (n'importe quel nom, `.png`, `.jpg`, `.jpeg`, `.webp`) dans le dossier du combat
+ou de la phase. Le programme prend la plus précise disponible :
+**phase → combat → palier / extension / catégorie → default**. Une seule image dans le dossier
+d'un ultime suffit donc pour toutes ses phases, et une image dans un palier sert à tous ses boss.
 
-- Ne renommez pas les dossiers de contenu. Pour les boss et les phases, seul le début compte
-  (`4 - `, `Phase 2`) ; vous pouvez créer vous-même un dossier `Phase N` manquant.
-- Les phases d'un ultime sont lues sur un rapport public FFLogs ; si ce n'est pas possible, le
-  dossier de l'ultime est créé sans sous-dossiers de phase : créez `Phase 1`, `Phase 2`… à la main.
-- Taille conseillée : 800 × 300 ou plus grand dans la même proportion (recadrage au centre).
-- Les mêmes dossiers placés dans `images/` du dépôt sont intégrés à l'exécutable et servent
-  quand vous n'avez pas d'image pour ce combat.
+- **Nommage** : un dossier de combat s'appelle « CODE - Nom FFLogs ». Le nom anglais après « - »
+  identifie le combat : gardez-le. Le code et les numéros devant ne servent qu'à l'ordre
+  d'affichage. Un dossier de phase commence par `Phase N` (ou `PN`) ; la suite est libre.
+- **Combat inconnu** : si un combat n'a pas de dossier (contenu sorti après cette version, nom
+  FFLogs différent), le programme le crée dans `4 - Autres contenus` au premier suivi.
+- **Ajouts** : vous pouvez créer d'autres dossiers ou phases, ils sont pris en compte. Les
+  dossiers existants ne sont jamais effacés ni renommés.
+- **Taille conseillée** : 800 × 300 ou plus grand dans la même proportion (recadrage au centre).
+- **Images intégrées** : les images placées dans `images/` du dépôt sont intégrées à
+  l'exécutable et servent quand vous n'en avez pas pour ce combat.
 
-**Ultimes « Legacy »** (DRU, TOP…) : FFLogs les regroupe dans une même zone. Dans le menu
-**Contenu**, cette zone ouvre un sous-menu pour choisir l'ultime suivi (`encounter_id` dans
-`config.json`).
+Les noms des combats et des phases viennent du jeu et de FFLogs ; certains (notamment les phases
+d'ultimes, anciens paliers) n'ont pas pu être vérifiés sur FFLogs. Si une image n'est pas prise,
+le journal indique le fond utilisé (« Fond : ... ») : renommez le dossier avec le nom du combat
+tel qu'il apparaît dans **Trouver les ID**.
+
+**Ultimes « Legacy » et extrêmes** : FFLogs regroupe plusieurs combats dans une même zone. Dans
+le menu **Contenu**, ces zones ouvrent un sous-menu pour choisir le combat suivi
+(`encounter_id` dans `config.json`).
 
 ### Publier une nouvelle version de l'exécutable
 

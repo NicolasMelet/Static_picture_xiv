@@ -1,0 +1,26 @@
+Images de fond de Prog FFLogs
+==============================
+
+  1 - Ultimates          un dossier par ultime, un sous-dossier par phase
+  2 - Raids sadiques     extension > palier > un dossier par boss
+  3 - Extrêmes           extension > un dossier par défi extrême
+  4 - Autres contenus    combats absents du catalogue (créés automatiquement)
+
+Déposez une image (.png, .jpg, .jpeg ou .webp, n'importe quel nom) dans le dossier du combat.
+Le programme prend la plus précise disponible :
+
+  1. le dossier de la phase en cours  (ex. « Phase 3 - Oracle of Darkness »)
+  2. le dossier du combat             (ex. « M12S - Lindwurm »)
+  3. les dossiers au-dessus           (palier, extension, catégorie : image commune)
+  4. default.jpg / default.png ici, à la racine (sinon le chaton fourni avec le programme)
+
+Une seule image dans le dossier d'un ultime suffit donc pour toutes ses phases.
+
+Règles de nommage :
+  - Dossier d'un combat : « CODE - Nom FFLogs ». Gardez le nom anglais après « - » : c'est lui
+    qui identifie le combat. Le code devant (M12S, P4S (1), EX3...) est libre.
+  - Dossier d'une phase : commence par « Phase N ». La suite est libre.
+  - Vous pouvez créer d'autres dossiers ou phases : ils seront pris en compte.
+  - S'il y a plusieurs images dans un dossier, la première par ordre alphabétique est utilisée.
+
+Taille conseillée : 800 x 300 (ou plus grand, même proportion) ; sinon recadrage au centre.
