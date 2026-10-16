@@ -35,7 +35,8 @@ jour et d'ouvrir l'image.
 2. Créez un jeton : *Settings → Developer settings → Fine-grained tokens* → accès au seul dépôt
    `Static_picture_xiv`, permission **Contents : Read and write**. Choisissez une date
    d'expiration lointaine : à l'expiration, les publications échouent (voir le journal).
-3. Lancez une première fois le programme (étape 3) : il crée la branche `gh-pages`.
+3. La branche `gh-pages` existe déjà : elle ne contient que le site (`prog.png`, une page
+   `index.html` qui affiche l'image, et `.nojekyll` pour un déploiement plus rapide).
 4. Dans le dépôt : *Settings → Pages → Source : Deploy from a branch → `gh-pages` / `(root)`*.
 
 ### 2. Accès à l'API FFLogs
@@ -118,5 +119,7 @@ remplace l'image (un commit sur `gh-pages`), GitHub redéploie le site.
   sont visibles par tous ; les clés, elles, restent dans `.env` sur votre PC.
 - **Historique** : chaque mise à jour ajoute un commit sur `gh-pages` (quelques dizaines de Ko).
   Sans importance à l'échelle d'un tier, la limite de taille d'un site Pages étant de 1 Go.
-- **La branche `gh-pages`** est créée automatiquement depuis `main` la première fois ; ne la
-  modifiez pas à la main, le code se trouve sur `main`.
+- **La branche `gh-pages`** est indépendante de `main` : elle ne contient que le site, le code
+  reste sur `main`. Le programme y remplace seulement `prog.png`. La page
+  <https://nicolasmelet.github.io/Static_picture_xiv/> affiche l'image et la recharge toutes les
+  5 minutes.
