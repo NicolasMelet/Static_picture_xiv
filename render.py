@@ -1,23 +1,22 @@
-"""Génération de l'image de progression (PNG)."""
-import io
+"""Génération de l'image de progression (PNG).
+
+Fond : image du boss / de la phase. En haut à gauche : nom du boss ou de l'ultime.
+En bas à gauche : progression (X/Y boss vaincus, ou « Phase X »).
+À droite : pulls (boss en cours, ou pulls par phase) puis, en gros, le meilleur %.
+"""
 import os
 from datetime import datetime
 
-import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from fflogs import boss_image_url, zone_image_url
-
-W = 640
-PAD = 20
-ROW_H = 64
+W, H = 800, 300
+PAD = 28
 BG = (22, 24, 31)
-CARD = (32, 35, 45)
-TEXT = (235, 237, 242)
-MUTED = (150, 156, 170)
-TRACK = (52, 56, 70)
-BAR = (225, 140, 60)
-KILL = (80, 200, 120)
+TEXT = (240, 242, 246)
+MUTED = (190, 196, 208)
+ACCENT = (240, 150, 60)
+KILL = (90, 210, 130)
+OUTLINE = (10, 11, 15)
 
 _FONT_CANDIDATES = {
     True: ["C:/Windows/Fonts/segoeuib.ttf", "DejaVuSans-Bold.ttf",
@@ -25,7 +24,6 @@ _FONT_CANDIDATES = {
     False: ["C:/Windows/Fonts/segoeui.ttf", "DejaVuSans.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"],
 }
-_img_cache = {}
 
 
 def font(size, bold=False):
@@ -37,27 +35,6 @@ def font(size, bold=False):
     return ImageFont.load_default(size)
 
 
-def fetch_image(url, size):
-    key = (url, size)
-    if key not in _img_cache:
-        try:
-            r = requests.get(url, timeout=20)
-            r.raise_for_status()
-            img = Image.open(io.BytesIO(r.content)).convert("RGBA")
-        except Exception:
-            img = Image.new("RGBA", (size, size), TRACK)
-        _img_cache[key] = img.resize((size, size), Image.LANCZOS)
-    return _img_cache[key]
-
-
-def rounded(img, radius):
-    mask = Image.new("L", img.size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, *img.size), radius, fill=255)
-    out = img.copy()
-    out.putalpha(mask)
-    return out
-
-
 def fit(draw, text, fnt, max_w):
     if draw.textlength(text, font=fnt) <= max_w:
         return text
@@ -66,70 +43,82 @@ def fit(draw, text, fnt, max_w):
     return text + "…"
 
 
-def render(prog, team_name, out_path):
-    encs = prog["encounters"]
-    header_h = 120
-    h = header_h + len(encs) * (ROW_H + 8) + 44
-    img = Image.new("RGBA", (W, h), BG)
+def fit_font(draw, text, size, max_w, bold=True, min_size=20):
+    """Réduit la taille de police jusqu'à ce que le texte tienne."""
+    while size > min_size and draw.textlength(text, font=font(size, bold)) > max_w:
+        size -= 2
+    return font(size, bold)
+
+
+def cover(img, w, h):
+    """Redimensionne et recadre l'image pour remplir w×h (comme CSS background-size: cover)."""
+    scale = max(w / img.width, h / img.height)
+    resized = img.resize((max(w, round(img.width * scale)), max(h, round(img.height * scale))),
+                         Image.LANCZOS)
+    left, top = (resized.width - w) // 2, (resized.height - h) // 2
+    out = resized.crop((left, top, left + w, top + h))
+    if scale > 2.5:          # image trop petite pour 800×300 : flou pour masquer les pixels
+        out = out.filter(ImageFilter.GaussianBlur(radius=min(12, scale * 1.5)))
+    return out
+
+
+def background(img):
+    base = cover(img, W, H) if img else Image.new("RGB", (W, H), BG)
+    base = base.convert("RGBA")
+    # Assombrit l'image, davantage sur les bords où se trouve le texte.
+    shade = Image.new("RGBA", (W, H))
+    d = ImageDraw.Draw(shade)
+    for x in range(W):
+        edge = abs(x - W / 2) / (W / 2)                # 0 au centre, 1 sur les bords
+        d.line([(x, 0), (x, H)], fill=(0, 0, 0, int(95 + 105 * edge)))
+    return Image.alpha_composite(base, shade)
+
+
+def text(d, xy, value, fnt, fill=TEXT, anchor="la"):
+    d.text(xy, value, font=fnt, fill=fill, anchor=anchor,
+           stroke_width=max(2, fnt.size // 18), stroke_fill=OUTLINE)
+
+
+def render(view, team_name, out_path, bg_image=None):
+    img = background(bg_image)
     d = ImageDraw.Draw(img)
+    half = W // 2 + 40
 
-    # En-tête : image du contenu + nom + compteur
-    icon = rounded(fetch_image(zone_image_url(prog["zone_id"]), 84), 12)
-    img.alpha_composite(icon, (PAD, PAD))
-    x = PAD + 84 + 16
-    cleared = prog["total"] and prog["done"] >= prog["total"]
-    d.text((x, PAD + 2), fit(d, prog["zone_name"], font(24, True), W - x - PAD - (110 if cleared else 0)),
-           font=font(24, True), fill=TEXT)
-    d.text((x, PAD + 36), team_name, font=font(17), fill=MUTED)
-    unit = "phases" if prog["mode"] == "phases" else "boss"
-    d.text((x, PAD + 62), f"{prog['done']}/{prog['total']} {unit} vaincus",
-           font=font(17, True), fill=KILL if prog["done"] else BAR)
+    # En haut à gauche : nom du boss / de l'ultime, puis le static.
+    title_font = fit_font(d, view["title"], 44, half - PAD)
+    text(d, (PAD, PAD - 4), view["title"], title_font)
+    sub = team_name or ""
+    sub += ("  ·  " if sub else "") + "MAJ " + datetime.now().strftime("%d/%m %H:%M")
+    text(d, (PAD, PAD + title_font.size + 6), sub, font(16), MUTED)
 
-    # Pastille "CLEAR" si tout est fait
+    # En bas à gauche : progression.
+    cleared = view["cleared"]
+    caption = "boss vaincus" if view["mode"] == "boss" else ("ultime" if cleared else "phase actuelle")
+    color = KILL if cleared else TEXT
+    text(d, (PAD, H - PAD - 74), caption.upper(), font(16, True), MUTED, anchor="ls")
+    text(d, (PAD, H - PAD + 4), view["progress_label"], font(72, True), color, anchor="ls")
+
+    # À droite : pulls, puis meilleur %.
+    right = W - PAD
+    lines = view["pulls_lines"]
+    size = 24 if len(lines) <= 4 else 20
+    y = PAD - 2
+    for line in lines:
+        text(d, (right, y), line, font(size, True), TEXT, anchor="ra")
+        y += size + 8
+
     if cleared:
-        d.rounded_rectangle((W - PAD - 96, PAD + 4, W - PAD, PAD + 36), 8, fill=KILL)
-        d.text((W - PAD - 48, PAD + 20), "CLEAR", font=font(17, True), fill=BG, anchor="mm")
-
-    # Une ligne par boss
-    y = header_h
-    for enc in encs:
-        d.rounded_rectangle((PAD, y, W - PAD, y + ROW_H), 10, fill=CARD)
-        bicon = rounded(fetch_image(boss_image_url(enc["id"]), 48), 8)
-        img.alpha_composite(bicon, (PAD + 8, y + 8))
-        tx = PAD + 8 + 48 + 12
-        right_w = 170
-        d.text((tx, y + 9), fit(d, enc["name"], font(17, True), W - tx - PAD - right_w),
-               font=font(17, True), fill=TEXT)
-
-        if enc["kills"]:
-            progress, color = 1.0, KILL
-            label = f"KILL ×{enc['kills']}"
-        elif enc["best_pct"] is not None:
-            progress, color = max(0.0, 1 - enc["best_pct"] / 100), BAR
-            label = f"{enc['best_pct']:.1f}%"
-            if enc["phase_name"]:
-                label = f"{enc['phase_name']} · {enc['best_boss_pct']:.1f}%" \
-                    if enc["best_boss_pct"] is not None else f"{enc['phase_name']} · {label}"
-        else:
-            progress, color, label = 0.0, MUTED, "Pas encore tenté"
-
-        # Barre de progression
-        bx0, bx1, by = tx, W - PAD - right_w, y + 40
-        d.rounded_rectangle((bx0, by, bx1, by + 10), 5, fill=TRACK)
-        if progress > 0:
-            d.rounded_rectangle((bx0, by, bx0 + max(10, int((bx1 - bx0) * progress)), by + 10),
-                                5, fill=color)
-
-        d.text((W - PAD - 14, y + 22), fit(d, label, font(18, True), right_w - 20),
-               font=font(18, True), fill=color, anchor="rm")
-        if enc["pulls"]:
-            d.text((W - PAD - 14, y + 46), f"{enc['pulls']} pull{'s' if enc['pulls'] > 1 else ''}", font=font(13),
-                   fill=MUTED, anchor="rm")
-        y += ROW_H + 8
-
-    d.text((PAD, h - 30), "Données : FFLogs", font=font(13), fill=MUTED)
-    d.text((W - PAD, h - 30), "MAJ " + datetime.now().strftime("%d/%m/%Y %H:%M"),
-           font=font(13), fill=MUTED, anchor="ra")
+        big, big_color, big_caption = "CLEAR", KILL, ""
+    elif view["best_pct"] is not None:
+        big, big_color, big_caption = f"{view['best_pct']:.1f}%", ACCENT, "meilleur %"
+    else:
+        big, big_color, big_caption = "—", MUTED, "meilleur %"
+    big_font = fit_font(d, big, 72, W - half - PAD)
+    big_y = max(H - PAD + 4, y + 22 + big_font.size)
+    text(d, (right, big_y), big, big_font, big_color, anchor="rs")
+    if big_caption:
+        text(d, (right, big_y - big_font.size - 2), big_caption.upper(),
+             font(16, True), MUTED, anchor="rs")
 
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     img.convert("RGB").save(out_path, "PNG", optimize=True)

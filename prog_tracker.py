@@ -23,6 +23,7 @@ from pathlib import Path
 from fflogs import FFLogs
 from progress import compute
 from publisher import GitHubPages
+from images import load_background
 from render import render
 
 FROZEN = getattr(sys, "frozen", False)          # vrai dans l'exécutable PyInstaller
@@ -35,6 +36,8 @@ CONFIG = DATA / "config.json"
 ENV_FILE = DATA / ".env"
 CACHE = DATA / "cache"
 OUTPUT = DATA / "output" / "prog.png"
+IMAGES = DATA / "images"                          # vos images de fond (prioritaires)
+BUNDLED_IMAGES = BUNDLE / "images"                # images fournies avec le programme
 APP_NAME = "ProgFFLogs"
 
 logging.basicConfig(
@@ -212,7 +215,9 @@ class Tracker:
         to_fetch, loaded = [], []
         for r in reports:
             cached = read_json(fights_cache / f"{r['code']}.json")
-            if cached and cached.get("endTime") == r["endTime"]:
+            # Les caches antérieurs à la v1.1 n'ont pas l'heure des pulls : on les recharge.
+            if cached and cached.get("endTime") == r["endTime"] \
+                    and "startTime" in cached.get("report", {}):
                 loaded.append(cached["report"])
             else:
                 to_fetch.append(r)
@@ -228,8 +233,11 @@ class Tracker:
         log.info("%d rapports (%d nouveaux/modifiés)", len(reports), len(to_fetch))
 
         zone = self.api.zone(zone_id)
-        prog = compute(zone, loaded, cfg.get("difficulty"))
-        render(prog, cfg.get("team_name", ""), OUTPUT)
+        prog = compute(zone, loaded, cfg.get("difficulty"),
+                       cfg.get("ultimate_pulls", "cumulative"))
+        bg, bg_path = load_background(prog["encounter_id"], prog["phase"], IMAGES, BUNDLED_IMAGES)
+        log.info("Fond : %s", bg_path)
+        render(prog, cfg.get("team_name", ""), OUTPUT, bg)
 
         digest = hashlib.sha1(json.dumps(
             prog, sort_keys=True, default=str).encode()).hexdigest()
@@ -345,6 +353,10 @@ def run_tray(tracker):
     def toggle_autostart(icon, item):
         set_autostart(not autostart_enabled())
 
+    def open_images(icon, item):
+        IMAGES.mkdir(parents=True, exist_ok=True)
+        open_file(IMAGES)
+
     def show_ids(icon, item):
         threading.Thread(target=lambda: write_setup(tracker.cfg), daemon=True).start()
 
@@ -358,6 +370,7 @@ def run_tray(tracker):
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Trouver les ID (static, contenus)", show_ids),
         pystray.MenuItem("Ouvrir le dossier des réglages", lambda i, it: open_file(DATA)),
+        pystray.MenuItem("Ouvrir le dossier des images", open_images),
         pystray.MenuItem("Lancer au démarrage de Windows", toggle_autostart,
                          checked=lambda item: autostart_enabled()),
         pystray.Menu.SEPARATOR,
@@ -416,6 +429,8 @@ def setup_lines(cfg):
         print(f"  [{exp}]")
         for z in zones:
             print(f"    {z['id']:>4}  {z['name']}")
+            for e in z["encounters"]:
+                print(f"            image : {e['id']}.png / {e['id']}-p<phase>.png  ({e['name']})")
     return out
 
 
@@ -442,7 +457,9 @@ def selftest():
     fights = [{"encounterID": 0, "kill": False, "fightPercentage": 42.0,
                "bossPercentage": 42.0, "lastPhase": 1}]
     out = DATA / "output" / "selftest.png"
-    render(compute(zone, [{"fights": fights}]), "Selftest", out)
+    bg, path = load_background(0, None, DATA / "selftest-images", BUNDLED_IMAGES)
+    assert path and path.name == "default.png", path
+    render(compute(zone, [{"fights": fights}]), "Selftest", out, bg)
     assert out.stat().st_size > 0
     return 0
 

@@ -30,6 +30,7 @@ jobs:
           pyinstaller --noconfirm --onefile --windowed --name ProgFFLogs
           --add-data "config.example.json;."
           --add-data ".env.example;."
+          --add-data "images;images"
           prog_tracker.py
 
       - name: Test de l'exécutable

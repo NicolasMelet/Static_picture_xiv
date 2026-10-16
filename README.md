@@ -17,10 +17,13 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
    processus Windows est regardée toutes les 30 s). Le bouton « Mettre à jour maintenant »
    et le changement de contenu interrogent FFLogs immédiatement.
 3. S'il y a un nouveau rapport (ou si un rapport en direct a grandi), il récupère les combats,
-   calcule la progression et génère l'image :
-   - image du contenu et de chaque boss (visuels officiels FFLogs),
-   - meilleur pourcentage atteint par boss (et la phase pour les fights à phases),
-   - nombre de boss vaincus (raid) ou de phases franchies (ultime).
+   calcule la progression et génère l'image (800 × 300) :
+   - en fond, votre image du boss ou de la phase en cours (voir « Images de fond ») ;
+   - en haut à gauche, le nom du boss en cours (raid) ou de l'ultime ;
+   - en bas à gauche, la progression : `X/Y` boss vaincus (raid) ou `Phase X` (ultime) ;
+   - à droite, les pulls : sur le boss en cours (raid), ou pour chaque phase jusqu'à la
+     phase actuelle (ultime, ex. `P1 : 156`, `P2 : 824`) ;
+   - en dessous, en gros, le meilleur pourcentage atteint sur le boss / la phase en cours.
 4. Si la progression a changé, l'image est poussée dans la branche `gh-pages` du dépôt (au plus
    une fois toutes les 10 minutes, voir plus bas). GitHub Pages la sert à la même adresse.
 
@@ -76,6 +79,7 @@ jamais dans le dépôt GitHub, seul le modèle `.env.example`, sans valeurs, y e
 | `github.repo` | `NicolasMelet/Static_picture_xiv` |
 | `github.min_publish_seconds` | Délai minimal entre deux publications (défaut 600 s) |
 | `autostart` | `true` : s'inscrit au démarrage de Windows au premier lancement |
+| `ultimate_pulls` | Ultime : `cumulative` (Pn = numéro du pull qui a passé la phase n) ou `per_phase` (Pn = pulls passés dans la phase n) |
 
 Pour trouver les ID de la Free Company, du static et des contenus : menu de l'icône →
 **Trouver les ID (static, contenus)** (ou `ProgFFLogs.exe --setup`). Le résultat s'ouvre dans le
@@ -85,6 +89,22 @@ Le menu de l'icône permet aussi d'activer/désactiver **Lancer au démarrage de
 d'ouvrir le dossier des réglages, où se trouve le journal `prog_tracker.log`.
 
 Test manuel (génère et publie une fois) : `ProgFFLogs.exe --once`.
+
+### Images de fond
+
+Aucune image n'est téléchargée depuis FFLogs. Déposez vos images (de préférence 800 × 300 ou
+plus grandes, même proportion) dans le dossier des images : menu de l'icône → **Ouvrir le dossier
+des images** (`%APPDATA%\ProgFFLogs\images`). Les noms utilisent l'ID FFLogs du combat, donné par
+**Trouver les ID** :
+
+| Fichier | Utilisé pour |
+|---|---|
+| `1079-p3.png` | Phase 3 du combat 1079 (ex. FRU) |
+| `1079.png` | Combat 1079, si aucune image de la phase n'existe |
+| `default.png` | Tout contenu sans image ; remplace l'image par défaut fournie |
+
+Extensions acceptées : `.png`, `.jpg`, `.jpeg`, `.webp`. Les images du dossier `images/` du dépôt
+sont intégrées à l'exécutable et servent si vous n'en avez pas fourni.
 
 ### Publier une nouvelle version de l'exécutable
 

@@ -3,6 +3,7 @@
   "zone_id": 73,
   "difficulty": 101,
   "autostart": true,
+  "ultimate_pulls": "cumulative",
 
   "fflogs": {
     "static_id": 141085,

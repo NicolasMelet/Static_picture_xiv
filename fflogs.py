@@ -5,15 +5,6 @@ import requests
 
 TOKEN_URL = "https://www.fflogs.com/oauth/token"
 API_URL = "https://www.fflogs.com/api/v2/client"
-ASSETS = "https://assets.rpglogs.com/img/ff"
-
-
-def zone_image_url(zone_id):
-    return f"{ASSETS}/zones/zone-{zone_id}.png"
-
-
-def boss_image_url(encounter_id):
-    return f"{ASSETS}/bosses/{encounter_id}-icon.jpg"
 
 
 class FFLogs:
@@ -114,10 +105,10 @@ class FFLogs:
         for i, code in enumerate(codes):
             parts.append(f"""
                 r{i}: report(code: "{code}", allowUnlisted: true) {{
-                    code
+                    code startTime
                     phases {{ encounterID phases {{ id name isIntermission }} }}
                     fights {{
-                        id encounterID difficulty kill
+                        id startTime encounterID difficulty kill
                         fightPercentage bossPercentage
                         lastPhase lastPhaseAsAbsoluteIndex lastPhaseIsIntermission
                     }}
