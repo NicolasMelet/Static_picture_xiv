@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from pathlib import Path
 
@@ -148,18 +149,29 @@ class Tracker:
     # --- Boucle --------------------------------------------------------------
 
     def loop(self):
+        """FFLogs n'est interrogé que si Archon ou ACT est ouvert (toutes les 5 min par
+        défaut), plus une dernière fois à leur fermeture pour ne pas rater le dernier envoi.
+        Archon/ACT fermés : seule la liste des processus Windows est consultée."""
         poll = self.cfg.get("poll", {})
-        fast = poll.get("active_seconds", 120)
-        slow = poll.get("idle_seconds", 900)
+        interval = poll.get("active_seconds", 300)
+        watch = poll.get("process_check_seconds", 30)
         names = poll.get("process_names", ["Archon.exe", "Advanced Combat Tool.exe"])
+        was_running, last_check = False, 0.0
         while not self.stop.is_set():
-            try:
-                force, self.force = self.force, False
-                self.check(force=force)
-            except Exception:
-                log.exception("Erreur pendant la mise à jour")
-            delay = fast if archon_running(names) else slow
-            self.wake.wait(delay)
+            running = archon_running(names)
+            force, self.force = self.force, False
+            due = running and time.monotonic() - last_check >= interval
+            closed = was_running and not running
+            if force or due or closed:
+                if closed:
+                    log.info("Archon/ACT fermé : dernière vérification")
+                try:
+                    self.check(force=force)
+                except Exception:
+                    log.exception("Erreur pendant la mise à jour")
+                last_check = time.monotonic()
+            was_running = running
+            self.wake.wait(watch)
             self.wake.clear()
 
     def refresh_now(self, force=True):

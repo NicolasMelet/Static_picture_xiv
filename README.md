@@ -11,8 +11,11 @@ https://<utilisateur>.github.io/<depot>/prog.png
 ## Fonctionnement
 
 1. Au démarrage de Windows, `prog_tracker.py` se lance en arrière-plan (icône orange dans la barre des tâches).
-2. Toutes les 2 minutes quand Archon (ou ACT) est ouvert, sinon toutes les 15 minutes, il demande à
-   l'API FFLogs la liste des rapports du static pour le contenu sélectionné.
+2. Toutes les 5 minutes quand Archon (ou ACT) est ouvert, il demande à l'API FFLogs la liste des
+   rapports du static pour le contenu sélectionné, puis une dernière fois à leur fermeture.
+   Quand ni Archon ni ACT ne tournent, FFLogs n'est jamais interrogé (seule la liste des
+   processus Windows est regardée toutes les 30 s). Le bouton « Mettre à jour maintenant »
+   et le changement de contenu interrogent FFLogs immédiatement.
 3. S'il y a un nouveau rapport (ou si un rapport en direct a grandi), il récupère les combats,
    calcule la progression et génère l'image :
    - image du contenu et de chaque boss (visuels officiels FFLogs),
