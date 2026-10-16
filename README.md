@@ -5,7 +5,7 @@ calcule la progression du static (meilleurs % et boss/phases vaincus) et publie 
 **GitHub Pages**, gratuitement, à une adresse qui ne change jamais :
 
 ```
-https://<utilisateur>.github.io/<depot>/prog.png
+https://nicolasmelet.github.io/Static_picture_xiv/prog.png
 ```
 
 ## Fonctionnement
@@ -31,9 +31,9 @@ jour et d'ouvrir l'image.
 
 ### 1. Dépôt GitHub (hébergement)
 
-1. Créez un dépôt **public** (ex. `fflogs-prog`) et poussez-y ce code.
+1. Le code est dans le dépôt public `NicolasMelet/Static_picture_xiv`.
 2. Créez un jeton : *Settings → Developer settings → Fine-grained tokens* → accès au seul dépôt
-   `fflogs-prog`, permission **Contents : Read and write**.
+   `Static_picture_xiv`, permission **Contents : Read and write**.
 3. Lancez une première fois le programme (étape 3) : il crée la branche `gh-pages`.
 4. Dans le dépôt : *Settings → Pages → Source : Deploy from a branch → `gh-pages` / `(root)`*.
 
@@ -60,7 +60,7 @@ Le premier lancement crée `config.json` et l'ouvre dans le Bloc-notes. Rempliss
 | `fflogs.client_id` / `client_secret` | Étape 2 |
 | `fflogs.guild_name` / `server` / `region` | Guilde FFLogs qui contient le static |
 | `fflogs.static_tag_id` | ID du static « Wipe Lotus » (voir ci-dessous), `null` = toute la guilde |
-| `github.token` / `repo` | Étape 1 (`repo` = `utilisateur/fflogs-prog`) |
+| `github.token` / `repo` | Étape 1 (`repo` = `NicolasMelet/Static_picture_xiv`) |
 
 Pour trouver l'ID de la guilde, du static et des contenus :
 

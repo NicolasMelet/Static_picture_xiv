@@ -15,7 +15,7 @@
 
   "github": {
     "token": "github_pat_COLLER_ICI",
-    "repo": "UTILISATEUR/fflogs-prog",
+    "repo": "NicolasMelet/Static_picture_xiv",
     "branch": "gh-pages",
     "path": "prog.png"
   },
