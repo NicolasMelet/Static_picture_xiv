@@ -3,7 +3,7 @@ Suivi de progression FFLogs -> image hébergée sur GitHub Pages.
 
   pythonw prog_tracker.py          lance le suivi avec icône dans la barre des tâches
   python  prog_tracker.py --once   génère et publie l'image une fois, puis quitte
-  python  prog_tracker.py --setup  affiche l'ID de la guilde, ses statics et les contenus
+  python  prog_tracker.py --setup  affiche les ID de la Free Company, des statics et des contenus
 """
 import argparse
 import hashlib
@@ -87,11 +87,8 @@ class Tracker:
         self.force = False
         self.state = read_json(CACHE / "state.json", {})
         f = cfg["fflogs"]
-        if not f.get("guild_id"):
-            g = self.api.guild(name=f["guild_name"], server=f["server"], region=f["region"])
-            if not g:
-                raise SystemExit("Guilde introuvable : vérifiez guild_name / server / region.")
-            f["guild_id"] = g["id"]
+        if not f.get("static_id"):
+            f["static_id"] = resolve_static(self.api, f)["id"]
             save_config(cfg)
 
     # --- Une itération -------------------------------------------------------
@@ -99,8 +96,8 @@ class Tracker:
     def check(self, force=False):
         cfg = self.cfg
         zone_id = cfg["zone_id"]
-        guild_id = cfg["fflogs"]["guild_id"]
-        tag_id = cfg["fflogs"].get("static_tag_id")
+        guild_id = cfg["fflogs"]["static_id"]
+        tag_id = cfg["fflogs"].get("raid_team_id")
 
         reports = self.api.report_list(guild_id, zone_id, tag_id)
         signature = hashlib.sha1(json.dumps(
@@ -242,16 +239,44 @@ def run_tray(tracker):
 
 # --- Aide à la configuration -------------------------------------------------
 
+def resolve_static(api, f):
+    """Trouve le static (Guild de type 1) : par ID, ou par son nom dans la Free Company."""
+    if f.get("static_id"):
+        return api.guild(f["static_id"])
+    g = api.guild(name=f.get("guild_name"), server=f.get("server"), region=f.get("region"))
+    if not g:
+        raise SystemExit("Free Company introuvable : vérifiez guild_name / server / region, "
+                         "ou renseignez directement static_id.")
+    wanted = (f.get("static_name") or "").strip().lower()
+    if g["name"].lower() == wanted:
+        return g
+    for st in g["statics"] or []:
+        if st["name"].strip().lower() == wanted:
+            return st
+    names = ", ".join(st["name"] for st in g["statics"] or []) or "aucun"
+    raise SystemExit(f"Static « {f.get('static_name')} » introuvable dans {g['name']} "
+                     f"(statics : {names}).")
+
+
 def setup(cfg):
     api = FFLogs(cfg["fflogs"]["client_id"], cfg["fflogs"]["client_secret"])
     f = cfg["fflogs"]
-    g = api.guild(f.get("guild_id"), f.get("guild_name"), f.get("server"), f.get("region"))
-    if not g:
-        print("Guilde introuvable : vérifiez guild_name / server / region.")
-    else:
-        print(f"Guilde : {g['name']} ({g['server']['name']})  ->  guild_id = {g['id']}")
-        for t in g["tags"] or []:
-            print(f"  static : {t['name']:<30} ->  static_tag_id = {t['id']}")
+    if f.get("guild_name"):
+        g = api.guild(name=f["guild_name"], server=f.get("server"), region=f.get("region"))
+        if g:
+            kind = "Static" if str(g["type"]) == "1" else "Free Company"
+            print(f"{kind} : {g['name']} ({g['server']['name']})  ->  id = {g['id']}")
+            for st in g["statics"] or []:
+                print(f"  static : {st['name']:<30} ->  static_id = {st['id']}")
+        else:
+            print("Free Company introuvable : vérifiez guild_name / server / region.")
+    try:
+        st = resolve_static(api, f)
+        print(f"\nStatic suivi : {st['name']}  ->  static_id = {st['id']}")
+        for t in st.get("tags") or []:
+            print(f"  équipe : {t['name']:<30} ->  raid_team_id = {t['id']}")
+    except SystemExit as e:
+        print(f"\n{e}")
     print("\nContenus disponibles :")
     for (_, exp), zones in zone_catalog(api):
         print(f"  [{exp}]")

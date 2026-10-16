@@ -80,14 +80,16 @@ class FFLogs:
             sig = "$name: String, $server: String, $region: String"
         data = self.query(f"""
             query({sig}) {{ guildData {{ guild({args}) {{
-                id name server {{ name }} tags {{ id name }}
+                id name type server {{ name }} tags {{ id name }}
+                statics {{ id name server {{ name }} }}
             }} }} }}""", variables)
         return data["guildData"]["guild"]
 
     # --- Rapports ------------------------------------------------------------
 
     def report_list(self, guild_id, zone_id, tag_id=None, max_pages=20):
-        """Liste (code, startTime, endTime) des rapports du groupe pour la zone."""
+        """Liste (code, startTime, endTime) des rapports du groupe pour la zone.
+        guild_id peut être une Free Company ou directement un static."""
         out, page = [], 1
         while page <= max_pages:
             data = self.query("""
@@ -111,13 +113,13 @@ class FFLogs:
         parts = []
         for i, code in enumerate(codes):
             parts.append(f"""
-                r{i}: report(code: "{code}") {{
+                r{i}: report(code: "{code}", allowUnlisted: true) {{
                     code
                     phases {{ encounterID phases {{ id name isIntermission }} }}
                     fights {{
                         id encounterID difficulty kill
                         fightPercentage bossPercentage
-                        lastPhase lastPhaseIsIntermission
+                        lastPhase lastPhaseAsAbsoluteIndex lastPhaseIsIntermission
                     }}
                 }}""")
         data = self.query("{ reportData {" + "".join(parts) + "} }")

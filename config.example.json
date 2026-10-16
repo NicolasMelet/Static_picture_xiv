@@ -6,11 +6,12 @@
   "fflogs": {
     "client_id": "COLLER_ICI",
     "client_secret": "COLLER_ICI",
-    "guild_name": "NOM_DE_LA_GUILDE",
+    "static_id": null,
+    "static_name": "Wipe Lotus",
+    "guild_name": "NOM_DE_LA_FREE_COMPANY",
     "server": "nom-du-serveur",
     "region": "EU",
-    "guild_id": null,
-    "static_tag_id": null
+    "raid_team_id": null
   },
 
   "github": {

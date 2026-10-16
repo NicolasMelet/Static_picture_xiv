@@ -58,11 +58,13 @@ Le premier lancement crée `config.json` et l'ouvre dans le Bloc-notes. Rempliss
 | `zone_id` | Contenu suivi (modifiable ensuite depuis l'icône) |
 | `difficulty` | `101` = Sadique, `100` = Normal, `null` = tout (ignoré pour les ultimes) |
 | `fflogs.client_id` / `client_secret` | Étape 2 |
-| `fflogs.guild_name` / `server` / `region` | Guilde FFLogs qui contient le static |
-| `fflogs.static_tag_id` | ID du static « Wipe Lotus » (voir ci-dessous), `null` = toute la guilde |
+| `fflogs.static_id` | ID du static : le nombre dans l'adresse de sa page FFLogs (`fflogs.com/guild/id/12345`). Laisser `null` pour le retrouver avec les deux lignes suivantes |
+| `fflogs.static_name` | Nom du static (`Wipe Lotus`) |
+| `fflogs.guild_name` / `server` / `region` | Free Company FFLogs dont dépend le static (inutile si `static_id` est rempli) |
+| `fflogs.raid_team_id` | Optionnel : ne suivre qu'une « équipe » (raid team) du static, `null` = tout le static |
 | `github.token` / `repo` | Étape 1 (`repo` = `NicolasMelet/Static_picture_xiv`) |
 
-Pour trouver l'ID de la guilde, du static et des contenus :
+Pour trouver les ID de la Free Company, du static et des contenus :
 
 ```powershell
 .venv\Scripts\python.exe prog_tracker.py --setup
@@ -80,8 +82,9 @@ Le journal est dans `prog_tracker.log`.
 
 ## Bon à savoir
 
-- **Logs privés** : l'API en mode « client » ne voit que les rapports publics ou non listés. Les
-  rapports *privés* n'apparaîtront pas.
+- **Logs privés** : l'API en mode « client » ne voit pas les rapports *privés*. Les rapports
+  publics sont pris en compte ; les rapports *non listés* sont lus quand FFLogs les inclut dans
+  la liste du static.
 - **Cache** : GitHub Pages met en cache ~10 minutes, et Discord garde longtemps les images déjà
   affichées. Pour Discord, ajouter un paramètre au lien (`prog.png?v=2`) force le rechargement.
 - **Désinstaller** : supprimez le raccourci `Prog FFLogs` du dossier `shell:startup`.
