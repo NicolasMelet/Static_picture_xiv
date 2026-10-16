@@ -1,8 +1,8 @@
 """Calcul de la progression d'un groupe à partir des combats FFLogs.
 
 Raid   : X/Y boss vaincus, pulls et meilleur % sur le premier boss pas encore tué.
-Ultime : phase actuelle, pulls nécessaires pour passer chaque phase, meilleur % sur la phase
-         actuelle.
+Ultime : phase actuelle, pull auquel chaque phase a été passée la première fois, pulls au total,
+         meilleur % sur la phase actuelle.
 """
 
 
@@ -102,7 +102,8 @@ def _raid(encs):
         "total": total,
         "cleared": cleared,
         "progress_label": f"{done}/{total}",
-        "pulls_lines": [f"Pulls: {current['pulls']}"],
+        "pulls": current["pulls"],               # pulls sur le boss en cours
+        "pulls_lines": [],
         "best_pct": None if cleared else best,
     }
 
@@ -123,9 +124,12 @@ def _ultimate(enc, total, mode):
 
     cleared = enc["kills"] > 0
     current = total if cleared else min(len(passed_at) + 1, total)
+    # Phases déjà passées : pull auquel chacune a été battue pour la première fois.
     lines, previous = [], 0
-    for p in range(1, current + 1):
-        at = passed_at.get(p, enc["pulls"])          # phase en cours : pulls jusqu'ici
+    for p in range(1, total + 1):
+        if p not in passed_at:
+            break
+        at = passed_at[p]
         count = at if mode == "cumulative" else at - previous
         previous = at
         lines.append(f"P{p}: {count}")
@@ -140,6 +144,7 @@ def _ultimate(enc, total, mode):
         "total": total,
         "cleared": cleared,
         "progress_label": "Clear" if cleared else f"Phase {current}",
+        "pulls": enc["pulls"],                   # pulls au total sur l'ultime
         "pulls_lines": lines,
         "best_pct": None if cleared else best.get(current),
     }

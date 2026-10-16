@@ -160,7 +160,7 @@ Naming rules:
   - You can add other folders or phases: they will be picked up.
   - If a folder holds several images, the first one in alphabetical order is used.
 
-Recommended size: 800 x 300 (or larger with the same ratio); otherwise it is center-cropped.
+Recommended size: 850 x 450 (or larger with the same ratio); otherwise it is center-cropped.
 """
 
 

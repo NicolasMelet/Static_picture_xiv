@@ -16,16 +16,18 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
    running, FFLogs is never queried (only the Windows process list is checked every 30 s). The
    **Update now** menu item and changing the content query FFLogs immediately.
 3. When there is a new report (or a live report has grown), it downloads the fights, computes the
-   progression and renders the image (800 × 300):
+   progression and renders the image (850 × 450, the size of the background images):
    - in the background, your image for the current boss or phase (see "Background images");
    - top left, the name of the current boss (raid) or of the ultimate;
-   - bottom left, the progression: `X/Y` (raid) or `Phase X` (ultimate). In savage, the last
-     fight has two phases and counts twice: a 4-fight Arcadion tier is counted out of 5, and
-     reaching phase 2 of the last boss is worth one point. Pandaemonium tiers, where FFLogs
-     already splits the last boss into two fights, are also counted out of 5;
-   - on the right, the pulls: on the current boss (raid), or for each phase up to the current one
-     (ultimate, e.g. `P1: 156`, `P2: 824`);
-   - below, in large type, the best percentage reached on the current boss / phase.
+   - bottom left, in large type, the best percentage reached on the current boss / phase, then
+     the current phase (ultimates, and the last savage boss) and the number of pulls (on the
+     current boss for a raid, in total for an ultimate);
+   - bottom right, for a raid: the progression `X/Y`. In savage, the last fight has two phases
+     and counts twice: a 4-fight Arcadion tier is counted out of 5, and reaching phase 2 of the
+     last boss is worth one point. Pandaemonium tiers, where FFLogs already splits the last boss
+     into two fights, are also counted out of 5;
+   - bottom right, for an ultimate: `Pulls:` then the pull on which each phase was cleared for
+     the first time (e.g. `P1: 156`, `P2: 824`).
 4. If the progression changed, the image is pushed to the repository's `gh-pages` branch (at most
    once every 10 minutes, see below). GitHub Pages serves it at the same address.
 
@@ -71,7 +73,7 @@ GitHub repository, which only holds the empty template `.env.example`.
 
 | Key | Value |
 |---|---|
-| `team_name` | Text shown under the title (e.g. `Wipe Lotus`) |
+| `team_name` | Static name, used for reference only (no longer shown on the image) |
 | `zone_id` | Tracked content (can be changed later from the icon) |
 | `encounter_id` | Fight chosen inside a multi-fight zone (legacy ultimates, extremes), otherwise `null` |
 | `difficulty` | `101` = Savage, `100` = Normal, `null` = all (ignored for ultimates) |
@@ -132,7 +134,7 @@ of its bosses.
 - **Additions**: you can create other folders or phases, they are picked up. Existing folders are
   never deleted or renamed (except the French folder names of v1.1.0, renamed to English
   automatically with their images).
-- **Recommended size**: 800 × 300 or larger with the same ratio (center-cropped otherwise).
+- **Recommended size**: 850 × 450 or larger with the same ratio (center-cropped otherwise).
 - **Bundled images**: images placed in the repository's `images/` folder are built into the
   executable and are used when you have none for that fight.
 

@@ -19,7 +19,11 @@ RENAMED = {
     "4 - Autres contenus": OTHER,
     "Phase 2 - Brute Justice et Cruise Chaser": "Phase 2 - Brute Justice and Cruise Chaser",
     "Phase 1 - Adelphel, Grinnaux et Charibert": "Phase 1 - Adelphel, Grinnaux and Charibert",
-    "Phase 6 - Nidhogg et Hraesvelgr": "Phase 6 - Nidhogg and Hraesvelgr",
+    "Phase 6 - Nidhogg et Hraesvelgr": "Phase 7 - Nidhogg and Hraesvelgr",
+    # v1.2.0 : DSR passe de 7 à 8 phases (Dragon-king Thordan = phase 8).
+    "Phase 5 - Alternate Thordan": "Phase 6 - Alternate Thordan",
+    "Phase 6 - Nidhogg and Hraesvelgr": "Phase 7 - Nidhogg and Hraesvelgr",
+    "Phase 7 - Dragon-king Thordan": "Phase 8 - Dragon-king Thordan",
     "Phase 2 - Omega-M et Omega-F": "Phase 2 - Omega-M and Omega-F",
     "Phase 4 - Usurper et Oracle": "Phase 4 - Usurper and Oracle",
 }
@@ -42,7 +46,8 @@ TREE = {
             "Perfect Alexander"),
         "4. DSR - Dragonsong's Reprise": _phases(
             "Adelphel, Grinnaux and Charibert", "King Thordan", "Nidhogg", "The Eyes of Nidhogg",
-            "Alternate Thordan", "Nidhogg and Hraesvelgr", "Dragon-king Thordan"),
+            "Intermission (Haurchefant)", "Alternate Thordan", "Nidhogg and Hraesvelgr",
+            "Dragon-king Thordan"),
         "5. TOP - The Omega Protocol": _phases(
             "Omega", "Omega-M and Omega-F", "Omega Reconfigured", "Blue Screen",
             "Run Dynamis", "Alpha Omega"),
