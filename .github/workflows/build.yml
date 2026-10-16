@@ -44,10 +44,10 @@ jobs:
         timeout-minutes: 3
         run: |
           $p = Start-Process dist\ProgFFLogs.exe -ArgumentList "--selftest" -PassThru
-          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "selftest bloqué (plus de 2 min)" }
+          if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "selftest hung (over 2 min)" }
           if ($p.ExitCode -ne 0) {
             Get-Content "$env:APPDATA\ProgFFLogs\selftest-error.txt" -ErrorAction SilentlyContinue
-            throw "selftest a échoué (code $($p.ExitCode))"
+            throw "selftest failed (code $($p.ExitCode))"
           }
           Get-Content "$env:APPDATA\ProgFFLogs\selftest.txt" -ErrorAction SilentlyContinue
           Write-Host "selftest OK"

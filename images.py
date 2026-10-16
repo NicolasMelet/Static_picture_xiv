@@ -129,7 +129,7 @@ def load_background(fight_name, zone_name, phase, user_dir, bundled_dir):
         try:
             return Image.open(path).convert("RGB"), path
         except Exception as e:
-            log.warning("Image illisible %s : %s", path, e)
+            log.warning("Unreadable image %s: %s", path, e)
     return None, None
 
 

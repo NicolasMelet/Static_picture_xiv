@@ -1,12 +1,12 @@
 """
-Suivi de progression FFLogs -> image hébergée sur GitHub Pages.
+FFLogs progression tracker -> image hosted on GitHub Pages.
 
-  ProgFFLogs.exe            lance le suivi avec icône dans la barre des tâches
-  ProgFFLogs.exe --once     génère et publie l'image une fois, puis quitte
-  ProgFFLogs.exe --setup    liste les ID de la Free Company, des statics et des contenus
-  ProgFFLogs.exe --selftest vérifie que l'exécutable fonctionne (utilisé par le build)
+  ProgFFLogs.exe            runs the tracker with a taskbar icon
+  ProgFFLogs.exe --once     renders and publishes the image once, then exits
+  ProgFFLogs.exe --setup    lists the IDs of the Free Company, statics and contents
+  ProgFFLogs.exe --selftest checks that the executable works (used by the build)
 
-(En développement : python prog_tracker.py ...)
+(In development: python prog_tracker.py ...)
 """
 import argparse
 import hashlib
@@ -68,7 +68,7 @@ def load_env(path=ENV_FILE):
 def secret(name):
     value = os.environ.get(name, "").strip()
     if not value or value.startswith(("PASTE_HERE", "COLLER_ICI")):
-        raise SystemExit(f"{name} manquant : renseignez-le dans {ENV_FILE}")
+        raise SystemExit(f"{name} is missing: fill it in {ENV_FILE}")
     return value
 
 
@@ -89,7 +89,7 @@ def open_file(path):
     if os.name == "nt":
         os.startfile(path)
     else:
-        print("Fichier :", path)
+        print("File:", path)
 
 
 def first_run():
@@ -100,9 +100,9 @@ def first_run():
             target.write_text((BUNDLE / name).read_text(encoding="utf-8"), encoding="utf-8")
             created.append(target)
     if created:
-        message("Premier lancement : remplissez les fichiers qui vont s'ouvrir "
-                "(clés dans .env, réglages dans config.json), puis relancez Prog FFLogs.\n\n"
-                f"Dossier : {DATA}")
+        message("First launch: fill in the files that are about to open "
+                "(keys in .env, settings in config.json), then start Prog FFLogs again.\n\n"
+                f"Folder: {DATA}")
         for path in created:
             open_file(path)
     return bool(created)
@@ -208,7 +208,7 @@ def archon_running(names):
     try:
         running = running_process_names()
     except Exception:
-        log.exception("Liste des processus via l'API Windows impossible, repli sur tasklist")
+        log.exception("Cannot list processes through the Windows API, falling back to tasklist")
         try:
             out = subprocess.run(
                 ["tasklist", "/fo", "csv", "/nh"], capture_output=True, text=True,
@@ -250,7 +250,7 @@ class Tracker:
             [zone_id, encounter_id, tag_id, sorted((r["code"], r["endTime"]) for r in reports)]
         ).encode()).hexdigest()
         if not force and signature == self.state.get("signature"):
-            log.info("Aucun nouveau log (%d rapports)", len(reports))
+            log.info("No new log (%d reports)", len(reports))
             return False
 
         # Ne retélécharge que les rapports nouveaux ou encore en cours d'envoi.
@@ -273,7 +273,7 @@ class Tracker:
                     write_json(fights_cache / f"{r['code']}.json",
                                {"endTime": r["endTime"], "report": rep})
                     loaded.append(rep)
-        log.info("%d rapports (%d nouveaux/modifiés)", len(reports), len(to_fetch))
+        log.info("%d reports (%d new/updated)", len(reports), len(to_fetch))
 
         zone, content = selected_content(self.api.zone(zone_id), encounter_id)
         prog = compute(zone, loaded, cfg.get("difficulty"),
@@ -283,10 +283,10 @@ class Tracker:
                 ensure_fight_dir(IMAGES, zone["name"], e["name"],
                                  [p["name"] for p in e["phases"] if not p.get("isIntermission")])
         except OSError:
-            log.exception("Impossible de créer les dossiers d'images")
+            log.exception("Cannot create the image folders")
         bg, bg_path = load_background(prog["title"], zone["name"], prog["phase"],
                                       IMAGES, BUNDLED_IMAGES)
-        log.info("Fond : %s", bg_path)
+        log.info("Background: %s", bg_path)
         render(prog, cfg.get("team_name", ""), OUTPUT, bg)
 
         digest = hashlib.sha1(json.dumps(
@@ -294,7 +294,7 @@ class Tracker:
         if force or digest != self.state.get("digest"):
             self.state["pending"] = f"Prog {zone['name']}: {prog['done']}/{prog['total']}"
         else:
-            log.info("Progression inchangée, pas de publication")
+            log.info("Progression unchanged, nothing to publish")
 
         self.state.update(signature=signature, digest=digest)
         write_json(CACHE / "state.json", self.state)
@@ -310,10 +310,10 @@ class Tracker:
         wait = self.cfg.get("github", {}).get("min_publish_seconds", 600)
         remaining = self.state.get("last_publish", 0) + wait - time.time()
         if remaining > 0:
-            log.info("Publication différée de %d s (limite GitHub Pages)", remaining)
+            log.info("Publication postponed by %d s (GitHub Pages limit)", remaining)
             return
         url = self.pages.upload(OUTPUT, message)
-        log.info("Image publiée : %s", url)
+        log.info("Image published: %s", url)
         self.state.update(pending=None, last_publish=time.time())
         write_json(CACHE / "state.json", self.state)
 
@@ -335,17 +335,17 @@ class Tracker:
             closed = was_running and not running
             if force or due or closed:
                 if closed:
-                    log.info("Archon/ACT fermé : dernière vérification")
+                    log.info("Archon/ACT closed: last check")
                 try:
                     self.check(force=force)
                 except Exception:
-                    log.exception("Erreur pendant la mise à jour")
+                    log.exception("Error during the update")
                 last_check = time.monotonic()
             else:
                 try:
                     self.publish_if_due()
                 except Exception:
-                    log.exception("Erreur pendant la publication")
+                    log.exception("Error while publishing")
             was_running = running
             self.wake.wait(watch)
             self.wake.clear()
@@ -358,7 +358,7 @@ class Tracker:
         self.cfg["zone_id"] = zone_id
         self.cfg["encounter_id"] = encounter_id
         save_config(self.cfg)
-        log.info("Contenu sélectionné : zone %s, combat %s", zone_id, encounter_id)
+        log.info("Selected content: zone %s, fight %s", zone_id, encounter_id)
         self.refresh_now()
 
 
@@ -386,7 +386,7 @@ def setup_images():
     try:
         create_skeleton(IMAGES)
     except OSError:
-        log.exception("Impossible de créer les dossiers d'images")
+        log.exception("Cannot create the image folders")
 
 
 # --- Icône de la barre des tâches --------------------------------------------
@@ -436,7 +436,7 @@ def run_tray(tracker):
 
     def reload_zones(icon, item):
         (CACHE / "zones.json").unlink(missing_ok=True)
-        icon.notify("Relancez l'application pour voir les nouveaux contenus.")
+        icon.notify("Restart the application to see the new contents.")
 
     def toggle_autostart(icon, item):
         set_autostart(not autostart_enabled())
@@ -449,20 +449,20 @@ def run_tray(tracker):
         threading.Thread(target=lambda: write_setup(tracker.cfg), daemon=True).start()
 
     menu = pystray.Menu(
-        pystray.MenuItem("Contenu", zone_menu),
-        pystray.MenuItem("Mettre à jour maintenant", lambda i, it: tracker.refresh_now()),
-        pystray.MenuItem("Ouvrir l'image en ligne",
+        pystray.MenuItem("Content", zone_menu),
+        pystray.MenuItem("Update now", lambda i, it: tracker.refresh_now()),
+        pystray.MenuItem("Open online image",
                          lambda i, it: webbrowser.open(tracker.pages.public_url)),
-        pystray.MenuItem("Ouvrir l'image locale", lambda i, it: open_file(OUTPUT)),
-        pystray.MenuItem("Recharger la liste des contenus", reload_zones),
+        pystray.MenuItem("Open local image", lambda i, it: open_file(OUTPUT)),
+        pystray.MenuItem("Reload content list", reload_zones),
         pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Trouver les ID (static, contenus)", show_ids),
-        pystray.MenuItem("Ouvrir le dossier des réglages", lambda i, it: open_file(DATA)),
-        pystray.MenuItem("Ouvrir le dossier des images", open_images),
-        pystray.MenuItem("Lancer au démarrage de Windows", toggle_autostart,
+        pystray.MenuItem("Find IDs (static, contents)", show_ids),
+        pystray.MenuItem("Open settings folder", lambda i, it: open_file(DATA)),
+        pystray.MenuItem("Open images folder", open_images),
+        pystray.MenuItem("Start with Windows", toggle_autostart,
                          checked=lambda item: autostart_enabled()),
         pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Quitter", quit_app),
+        pystray.MenuItem("Quit", quit_app),
     )
     icon_img = Image.new("RGB", (64, 64), (225, 140, 60))
     icon = pystray.Icon("fflogs_prog", icon_img, "Prog FFLogs", menu)
@@ -478,17 +478,17 @@ def resolve_static(api, f):
         return api.guild(f["static_id"])
     g = api.guild(name=f.get("guild_name"), server=f.get("server"), region=f.get("region"))
     if not g:
-        raise SystemExit("Free Company introuvable : vérifiez guild_name / server / region, "
-                         "ou renseignez directement static_id.")
+        raise SystemExit("Free Company not found: check guild_name / server / region, "
+                         "or set static_id directly.")
     wanted = (f.get("static_name") or "").strip().lower()
     if g["name"].lower() == wanted:
         return g
     for st in g["statics"] or []:
         if st["name"].strip().lower() == wanted:
             return st
-    names = ", ".join(st["name"] for st in g["statics"] or []) or "aucun"
-    raise SystemExit(f"Static « {f.get('static_name')} » introuvable dans {g['name']} "
-                     f"(statics : {names}).")
+    names = ", ".join(st["name"] for st in g["statics"] or []) or "none"
+    raise SystemExit(f"Static \"{f.get('static_name')}\" not found in {g['name']} "
+                     f"(statics: {names}).")
 
 
 def setup_lines(cfg):
@@ -500,25 +500,25 @@ def setup_lines(cfg):
         g = api.guild(name=f["guild_name"], server=f.get("server"), region=f.get("region"))
         if g:
             kind = "Static" if str(g["type"]) == "1" else "Free Company"
-            print(f"{kind} : {g['name']} ({g['server']['name']})  ->  id = {g['id']}")
+            print(f"{kind}: {g['name']} ({g['server']['name']})  ->  id = {g['id']}")
             for st in g["statics"] or []:
-                print(f"  static : {st['name']:<30} ->  static_id = {st['id']}")
+                print(f"  static: {st['name']:<30} ->  static_id = {st['id']}")
         else:
-            print("Free Company introuvable : vérifiez guild_name / server / region.")
+            print("Free Company not found: check guild_name / server / region.")
     try:
         st = resolve_static(api, f)
-        print(f"\nStatic suivi : {st['name']}  ->  static_id = {st['id']}")
+        print(f"\nTracked static: {st['name']}  ->  static_id = {st['id']}")
         for t in st.get("tags") or []:
-            print(f"  équipe : {t['name']:<30} ->  raid_team_id = {t['id']}")
+            print(f"  raid team: {t['name']:<30} ->  raid_team_id = {t['id']}")
     except SystemExit as e:
         print(f"\n{e}")
-    print("\nContenus disponibles :")
+    print("\nAvailable contents:")
     for (_, exp), zones in zone_catalog(api):
         print(f"  [{exp}]")
         for z in zones:
             print(f"    {z['id']:>4}  {z['name']}")
             for e in z["encounters"]:
-                print(f"            combat : {e['name']}  (id {e['id']})")
+                print(f"            fight: {e['name']}  (id {e['id']})")
     return out
 
 
@@ -558,8 +558,8 @@ def selftest():
         names = running_process_names()
         elapsed = (time.perf_counter() - start) * 1000
         (DATA / "selftest.txt").write_text(            # lu par le build (pas de console)
-            f"{len(names)} processus listés en {elapsed:.1f} ms\n", encoding="utf-8")
-        assert own.lower() in names, f"{own} absent de la liste des processus"
+            f"{len(names)} processes listed in {elapsed:.1f} ms\n", encoding="utf-8")
+        assert own.lower() in names, f"{own} missing from the process list"
         assert archon_running([own]) and not archon_running(["inexistant-xyz.exe"])
     return 0
 
@@ -589,9 +589,9 @@ def main():
         tracker = Tracker(cfg)
         tracker.check(force=True)
         if tracker.state.get("pending"):
-            message("Publication différée (limite de fréquence), elle sera faite par le suivi.")
+            message("Publication postponed (rate limit); the background tracker will publish it.")
         else:
-            message(f"Image publiée : {tracker.pages.public_url}")
+            message(f"Image published: {tracker.pages.public_url}")
     else:
         tracker = Tracker(cfg)
         if cfg.get("autostart", True) and not tracker.state.get("autostart_set"):
@@ -610,6 +610,6 @@ if __name__ == "__main__":
             sys.exit(1)
         raise
     except Exception as e:
-        log.exception("Erreur fatale")
-        message(f"Erreur : {e}\n\nDétails dans {DATA / 'prog_tracker.log'}", error=True)
+        log.exception("Fatal error")
+        message(f"Error: {e}\n\nDetails in {DATA / 'prog_tracker.log'}", error=True)
         sys.exit(1)

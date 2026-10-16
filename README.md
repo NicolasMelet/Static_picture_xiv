@@ -14,8 +14,7 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
 2. Every 5 minutes while Archon (or ACT) is open, it asks the FFLogs API for the static's reports
    on the selected content, then one last time when they close. While neither Archon nor ACT is
    running, FFLogs is never queried (only the Windows process list is checked every 30 s). The
-   "Mettre à jour maintenant" (update now) menu item and changing the content query FFLogs
-   immediately.
+   **Update now** menu item and changing the content query FFLogs immediately.
 3. When there is a new report (or a live report has grown), it downloads the fights, computes the
    progression and renders the image (800 × 300):
    - in the background, your image for the current boss or phase (see "Background images");
@@ -86,19 +85,17 @@ GitHub repository, which only holds the empty template `.env.example`.
 | `ultimate_pulls` | Ultimate: `cumulative` (Pn = number of the pull that cleared phase n) or `per_phase` (Pn = pulls spent in phase n) |
 
 To find the IDs of the Free Company, the static and the contents: icon menu →
-**Trouver les ID (static, contenus)** (find IDs), or `ProgFFLogs.exe --setup`. The result opens
-in Notepad.
+**Find IDs (static, contents)**, or `ProgFFLogs.exe --setup`. The result opens in Notepad.
 
-The icon menu also toggles **Lancer au démarrage de Windows** (start with Windows) and opens the
-settings folder, which holds the log file `prog_tracker.log`.
+The icon menu also toggles **Start with Windows** and has **Open settings folder**, which holds
+the log file `prog_tracker.log`.
 
 Manual test (renders and publishes once): `ProgFFLogs.exe --once`.
 
 ### Background images
 
 No image is downloaded from FFLogs: the backgrounds are your own images, stored in
-`%APPDATA%\ProgFFLogs\images` (icon menu → **Ouvrir le dossier des images**, open the images
-folder). The whole folder tree is created when the program starts; it is also visible in the
+`%APPDATA%\ProgFFLogs\images` (icon menu → **Open images folder**). The whole folder tree is created when the program starts; it is also visible in the
 repository's [`images/`](images) folder.
 
 ```
@@ -141,11 +138,11 @@ of its bosses.
 
 Fight and phase names come from the game and FFLogs; some of them (especially ultimate phases and
 older tiers) could not be checked against FFLogs. If an image is not picked up, the log shows the
-background used ("Fond : ..."): rename the folder after the fight name as shown by
-**Trouver les ID**.
+background used ("Background: ..."): rename the folder after the fight name as shown by
+**Find IDs**.
 
 **Legacy ultimates and extremes**: FFLogs groups several fights in a single zone. In the
-**Contenu** (content) menu, these zones open a sub-menu to choose the tracked fight
+**Content** menu, these zones open a sub-menu to choose the tracked fight
 (`encounter_id` in `config.json`).
 
 ### Publishing a new version of the executable
@@ -173,7 +170,7 @@ In development, `.env`, `config.json` and the log sit next to the script (ignore
 
 - **Private logs**: the API in "client" mode cannot see *private* reports. Public reports are
   included; *unlisted* reports are read when FFLogs includes them in the static's report list.
-- **Uninstall**: untick "Lancer au démarrage de Windows", quit, then delete `ProgFFLogs.exe` and
+- **Uninstall**: untick **Start with Windows**, **Quit**, then delete `ProgFFLogs.exe` and
   the `%APPDATA%\ProgFFLogs` folder.
 
 ## GitHub Pages: what to know

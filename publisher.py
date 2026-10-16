@@ -42,7 +42,7 @@ class GitHubPages:
             "sha": ref.json()["object"]["sha"],
         }).raise_for_status()
 
-    def upload(self, local_file, message="Mise à jour de la progression"):
+    def upload(self, local_file, message="Progression update"):
         self._ensure_branch()
         url = f"{API}/repos/{self.repo}/contents/{self.path}"
         r = self.s.get(url, params={"ref": self.branch})
