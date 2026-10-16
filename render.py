@@ -10,7 +10,10 @@ import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 W, H = 850, 450
-PAD = 30
+PAD = 26
+
+# Tailles de police (px)
+TITLE, BIG, PHASE, SMALL, LINES = 38, 68, 32, 22, 22
 BG = (22, 24, 31)
 TEXT = (255, 255, 255)
 ACCENT = (255, 214, 64)          # meilleur %
@@ -79,39 +82,39 @@ def render(view, team_name, out_path, bg_image=None):
     cleared = view["cleared"]
 
     # En haut à gauche : nom du boss / de l'ultime.
-    text(d, (PAD, PAD - 6), view["title"], fit_font(d, view["title"], 52, W - 2 * PAD))
+    text(d, (PAD, PAD - 4), view["title"], fit_font(d, view["title"], TITLE, W - 2 * PAD))
 
     # En bas à gauche, de bas en haut : « N pulls », phase en cours, meilleur %.
-    y = H - PAD + 6
+    y = H - PAD + 4
     pulls = view.get("pulls", 0)
-    text(d, (PAD, y), f"{pulls} pull{'s' if pulls != 1 else ''}", font(28), TEXT, anchor="ls")
-    y -= 28 + 14
+    text(d, (PAD, y), f"{pulls} pull{'s' if pulls != 1 else ''}", font(SMALL), TEXT, anchor="ls")
+    y -= SMALL + 12
     phase_label = view["progress_label"] if view["mode"] == "phases" else \
         (f"Phase {view['phase']}" if view.get("phase") else None)
     if phase_label and not cleared:
-        text(d, (PAD, y), phase_label, font(44), TEXT, anchor="ls")
-        y -= 44 + 12
+        text(d, (PAD, y), phase_label, font(PHASE), TEXT, anchor="ls")
+        y -= PHASE + 10
     if cleared:
         big, color = "CLEAR", KILL
     elif view["best_pct"] is not None:
         big, color = f"{view['best_pct']:.1f}%", ACCENT
     else:
         big, color = "—", TEXT
-    text(d, (PAD, y), big, font(96), color, anchor="ls")
+    text(d, (PAD, y), big, font(BIG), color, anchor="ls")
 
     # En bas à droite.
     right = W - PAD
     if view["mode"] == "phases":
         lines = view["pulls_lines"]
-        size = 28 if len(lines) <= 5 else 24
-        y = H - PAD + 6
+        size = LINES if len(lines) <= 6 else LINES - 2
+        y = H - PAD + 4
         for line in reversed(lines):
             text(d, (right, y), line, font(size), TEXT, anchor="rs")
-            y -= size + 8
+            y -= size + 6
         if lines:
             text(d, (right, y), "Pulls:", font(size), TEXT, anchor="rs")
     else:
-        text(d, (right, H - PAD + 8), view["progress_label"], font(96),
+        text(d, (right, H - PAD + 6), view["progress_label"], font(BIG),
              KILL if cleared else TEXT, anchor="rs")
 
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
