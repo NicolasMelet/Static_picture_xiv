@@ -2,6 +2,7 @@
   "team_name": "Wipe Lotus",
   "zone_id": 73,
   "difficulty": 101,
+  "autostart": true,
 
   "fflogs": {
     "static_id": null,

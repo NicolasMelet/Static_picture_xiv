@@ -1,9 +1,12 @@
 """
 Suivi de progression FFLogs -> image hébergée sur GitHub Pages.
 
-  pythonw prog_tracker.py          lance le suivi avec icône dans la barre des tâches
-  python  prog_tracker.py --once   génère et publie l'image une fois, puis quitte
-  python  prog_tracker.py --setup  affiche les ID de la Free Company, des statics et des contenus
+  ProgFFLogs.exe            lance le suivi avec icône dans la barre des tâches
+  ProgFFLogs.exe --once     génère et publie l'image une fois, puis quitte
+  ProgFFLogs.exe --setup    liste les ID de la Free Company, des statics et des contenus
+  ProgFFLogs.exe --selftest vérifie que l'exécutable fonctionne (utilisé par le build)
+
+(En développement : python prog_tracker.py ...)
 """
 import argparse
 import hashlib
@@ -22,14 +25,20 @@ from progress import compute
 from publisher import GitHubPages
 from render import render
 
+FROZEN = getattr(sys, "frozen", False)          # vrai dans l'exécutable PyInstaller
 HERE = Path(__file__).resolve().parent
-CONFIG = HERE / "config.json"
-ENV_FILE = HERE / ".env"
-CACHE = HERE / "cache"
-OUTPUT = HERE / "output" / "prog.png"
+BUNDLE = Path(getattr(sys, "_MEIPASS", HERE))     # fichiers modèles embarqués dans l'exe
+# Exécutable : réglages dans %APPDATA%\ProgFFLogs ; en développement : à côté du script.
+DATA = Path(os.environ.get("APPDATA", Path.home())) / "ProgFFLogs" if FROZEN else HERE
+DATA.mkdir(parents=True, exist_ok=True)
+CONFIG = DATA / "config.json"
+ENV_FILE = DATA / ".env"
+CACHE = DATA / "cache"
+OUTPUT = DATA / "output" / "prog.png"
+APP_NAME = "ProgFFLogs"
 
 logging.basicConfig(
-    filename=HERE / "prog_tracker.log",
+    filename=DATA / "prog_tracker.log",
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
@@ -61,6 +70,71 @@ def secret(name):
 
 def fflogs_client():
     return FFLogs(secret("FFLOGS_CLIENT_ID"), secret("FFLOGS_CLIENT_SECRET"))
+
+
+def message(text, error=False):
+    """Affiche un message : boîte de dialogue Windows dans l'exe, console sinon."""
+    if FROZEN and os.name == "nt":
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, str(text), "Prog FFLogs", 0x10 if error else 0x40)
+    else:
+        print(text)
+
+
+def open_file(path):
+    if os.name == "nt":
+        os.startfile(path)
+    else:
+        print("Fichier :", path)
+
+
+def first_run():
+    """Crée .env et config.json à partir des modèles s'ils n'existent pas encore."""
+    created = []
+    for name, target in ((".env.example", ENV_FILE), ("config.example.json", CONFIG)):
+        if not target.exists():
+            target.write_text((BUNDLE / name).read_text(encoding="utf-8"), encoding="utf-8")
+            created.append(target)
+    if created:
+        message("Premier lancement : remplissez les fichiers qui vont s'ouvrir "
+                "(clés dans .env, réglages dans config.json), puis relancez Prog FFLogs.\n\n"
+                f"Dossier : {DATA}")
+        for path in created:
+            open_file(path)
+    return bool(created)
+
+
+# --- Lancement au démarrage de Windows (registre, sans droits administrateur) ---
+
+RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
+
+def autostart_enabled():
+    if os.name != "nt":
+        return False
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
+            winreg.QueryValueEx(key, APP_NAME)
+        return True
+    except OSError:
+        return False
+
+
+def set_autostart(enabled):
+    if os.name != "nt":
+        return
+    import winreg
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+        if enabled:
+            cmd = f'"{sys.executable}"' if FROZEN else \
+                f'"{Path(sys.executable).with_name("pythonw.exe")}" "{HERE / "prog_tracker.py"}"'
+            winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, cmd)
+        else:
+            try:
+                winreg.DeleteValue(key, APP_NAME)
+            except OSError:
+                pass
 
 
 def load_config():
@@ -268,13 +342,24 @@ def run_tray(tracker):
         (CACHE / "zones.json").unlink(missing_ok=True)
         icon.notify("Relancez l'application pour voir les nouveaux contenus.")
 
+    def toggle_autostart(icon, item):
+        set_autostart(not autostart_enabled())
+
+    def show_ids(icon, item):
+        threading.Thread(target=lambda: write_setup(tracker.cfg), daemon=True).start()
+
     menu = pystray.Menu(
         pystray.MenuItem("Contenu", zone_menu),
         pystray.MenuItem("Mettre à jour maintenant", lambda i, it: tracker.refresh_now()),
         pystray.MenuItem("Ouvrir l'image en ligne",
                          lambda i, it: webbrowser.open(tracker.pages.public_url)),
-        pystray.MenuItem("Ouvrir l'image locale", lambda i, it: os.startfile(OUTPUT)),
+        pystray.MenuItem("Ouvrir l'image locale", lambda i, it: open_file(OUTPUT)),
         pystray.MenuItem("Recharger la liste des contenus", reload_zones),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Trouver les ID (static, contenus)", show_ids),
+        pystray.MenuItem("Ouvrir le dossier des réglages", lambda i, it: open_file(DATA)),
+        pystray.MenuItem("Lancer au démarrage de Windows", toggle_autostart,
+                         checked=lambda item: autostart_enabled()),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quitter", quit_app),
     )
@@ -305,7 +390,9 @@ def resolve_static(api, f):
                      f"(statics : {names}).")
 
 
-def setup(cfg):
+def setup_lines(cfg):
+    out = []
+    print = out.append  # noqa: A001 - collecte les lignes au lieu de les afficher
     api = fflogs_client()
     f = cfg["fflogs"]
     if f.get("guild_name"):
@@ -329,26 +416,76 @@ def setup(cfg):
         print(f"  [{exp}]")
         for z in zones:
             print(f"    {z['id']:>4}  {z['name']}")
+    return out
+
+
+def write_setup(cfg):
+    """Écrit les ID dans setup.txt et l'ouvre (l'exe n'a pas de console)."""
+    try:
+        text = "\n".join(setup_lines(cfg))
+    except SystemExit as e:
+        text = str(e)
+    path = DATA / "setup.txt"
+    path.write_text(text, encoding="utf-8")
+    if FROZEN:
+        open_file(path)
+    else:
+        print(text)
+
+
+def selftest():
+    """Vérifie l'exécutable sans réseau obligatoire : modules embarqués, modèles, rendu."""
+    import pystray  # noqa: F401
+    for name in (".env.example", "config.example.json"):
+        assert (BUNDLE / name).read_text(encoding="utf-8")
+    zone = {"id": 0, "name": "Selftest", "encounters": [{"id": 0, "name": "Boss"}]}
+    fights = [{"encounterID": 0, "kill": False, "fightPercentage": 42.0,
+               "bossPercentage": 42.0, "lastPhase": 1}]
+    out = DATA / "output" / "selftest.png"
+    render(compute(zone, [{"fights": fights}]), "Selftest", out)
+    assert out.stat().st_size > 0
+    return 0
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--setup", action="store_true")
+    ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
+    if args.selftest:
+        sys.exit(selftest())
+    if first_run():
+        return
     load_env()
     cfg = load_config()
     if args.setup:
-        setup(cfg)
+        write_setup(cfg)
     elif args.once:
         tracker = Tracker(cfg)
         tracker.check(force=True)
         if tracker.state.get("pending"):
-            print("Publication différée (limite de fréquence), elle sera faite par le suivi.")
-        print("OK :", OUTPUT)
+            message("Publication différée (limite de fréquence), elle sera faite par le suivi.")
+        else:
+            message(f"Image publiée : {tracker.pages.public_url}")
     else:
-        run_tray(Tracker(cfg))
+        tracker = Tracker(cfg)
+        if cfg.get("autostart", True) and not tracker.state.get("autostart_set"):
+            set_autostart(True)   # une seule fois : l'utilisateur peut le désactiver ensuite
+            tracker.state["autostart_set"] = True
+            write_json(CACHE / "state.json", tracker.state)
+        run_tray(tracker)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit as e:
+        if isinstance(e.code, str):
+            message(e.code, error=True)
+            sys.exit(1)
+        raise
+    except Exception as e:
+        log.exception("Erreur fatale")
+        message(f"Erreur : {e}\n\nDétails dans {DATA / 'prog_tracker.log'}", error=True)
+        sys.exit(1)

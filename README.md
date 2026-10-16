@@ -10,7 +10,7 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
 
 ## Fonctionnement
 
-1. Au démarrage de Windows, `prog_tracker.py` se lance en arrière-plan (icône orange dans la barre des tâches).
+1. Au démarrage de Windows, `ProgFFLogs.exe` se lance en arrière-plan (icône orange dans la barre des tâches).
 2. Toutes les 5 minutes quand Archon (ou ACT) est ouvert, il demande à l'API FFLogs la liste des
    rapports du static pour le contenu sélectionné, puis une dernière fois à leur fermeture.
    Quand ni Archon ni ACT ne tournent, FFLogs n'est jamais interrogé (seule la liste des
@@ -46,24 +46,23 @@ Sur <https://www.fflogs.com/api/clients/>, créez un client (nom libre, URL de r
 
 ### 3. Sur le PC Windows
 
-Prérequis : [Python 3.10+](https://www.python.org/downloads/) (cocher « Add to PATH »).
+1. Téléchargez `ProgFFLogs.exe` depuis la dernière
+   [release](https://github.com/NicolasMelet/Static_picture_xiv/releases/latest) et rangez-le
+   où vous voulez (ex. `Documents\ProgFFLogs`). Python n'est pas nécessaire.
+2. Lancez-le. Windows SmartScreen peut afficher « Windows a protégé votre ordinateur » car
+   l'exécutable n'est pas signé : *Informations complémentaires → Exécuter quand même*.
+3. Au premier lancement, il crée deux fichiers dans `%APPDATA%\ProgFFLogs` et les ouvre dans le
+   Bloc-notes. Remplissez-les puis relancez `ProgFFLogs.exe`.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File install.ps1
-```
-
-Le premier lancement crée deux fichiers et les ouvre dans le Bloc-notes.
-
-**`.env` : les clés secrètes.** Ce fichier est ignoré par git (`.gitignore`) et ne sera jamais
-poussé sur GitHub. Seul le modèle `.env.example`, sans valeurs, est dans le dépôt.
+**`.env` : les clés secrètes.** Il reste sur votre PC (`%APPDATA%\ProgFFLogs`) : il n'est
+jamais dans le dépôt GitHub, seul le modèle `.env.example`, sans valeurs, y est.
 
 | Clé | Valeur |
 |---|---|
 | `FFLOGS_CLIENT_ID` / `FFLOGS_CLIENT_SECRET` | Étape 2 |
 | `GITHUB_TOKEN` | Étape 1 |
 
-**`config.json` : les réglages** (lui aussi ignoré par git, le programme le modifie quand vous
-changez de contenu) :
+**`config.json` : les réglages** (le programme le modifie quand vous changez de contenu) :
 
 | Clé | Valeur |
 |---|---|
@@ -76,29 +75,45 @@ changez de contenu) :
 | `fflogs.raid_team_id` | Optionnel : ne suivre qu'une « équipe » (raid team) du static, `null` = tout le static |
 | `github.repo` | `NicolasMelet/Static_picture_xiv` |
 | `github.min_publish_seconds` | Délai minimal entre deux publications (défaut 600 s) |
+| `autostart` | `true` : s'inscrit au démarrage de Windows au premier lancement |
 
-Pour trouver les ID de la Free Company, du static et des contenus :
+Pour trouver les ID de la Free Company, du static et des contenus : menu de l'icône →
+**Trouver les ID (static, contenus)** (ou `ProgFFLogs.exe --setup`). Le résultat s'ouvre dans le
+Bloc-notes.
 
-```powershell
-.venv\Scripts\python.exe prog_tracker.py --setup
+Le menu de l'icône permet aussi d'activer/désactiver **Lancer au démarrage de Windows** et
+d'ouvrir le dossier des réglages, où se trouve le journal `prog_tracker.log`.
+
+Test manuel (génère et publie une fois) : `ProgFFLogs.exe --once`.
+
+### Publier une nouvelle version de l'exécutable
+
+Le workflow `.github/workflows/build.yml` construit l'exécutable sur une machine Windows de
+GitHub Actions et le teste à chaque push sur `main` (téléchargeable dans l'onglet *Actions*).
+Pour publier une release :
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
-Relancez ensuite `install.ps1` : il ajoute le raccourci dans le dossier *Démarrage* et lance le suivi.
-
-Test manuel (génère et publie une fois) :
+### Développement (sans exécutable)
 
 ```powershell
-.venv\Scripts\python.exe prog_tracker.py --once
+py -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+.venv\Scripts\python prog_tracker.py --once
 ```
 
-Le journal est dans `prog_tracker.log`.
+En développement, `.env`, `config.json` et le journal sont à côté du script (ignorés par git).
 
 ## Bon à savoir
 
 - **Logs privés** : l'API en mode « client » ne voit pas les rapports *privés*. Les rapports
   publics sont pris en compte ; les rapports *non listés* sont lus quand FFLogs les inclut dans
   la liste du static.
-- **Désinstaller** : supprimez le raccourci `Prog FFLogs` du dossier `shell:startup`.
+- **Désinstaller** : décochez « Lancer au démarrage de Windows », quittez, puis supprimez
+  `ProgFFLogs.exe` et le dossier `%APPDATA%\ProgFFLogs`.
 
 ## GitHub Pages : ce qu'il faut savoir
 
