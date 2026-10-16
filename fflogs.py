@@ -76,6 +76,23 @@ class FFLogs:
             }} }} }}""", variables)
         return data["guildData"]["guild"]
 
+    def encounter_phases(self, encounter_id):
+        """Phases d'un combat, lues dans un rapport public classé sur ce combat."""
+        data = self.query("""
+            query($id: Int!) { worldData { encounter(id: $id) {
+                characterRankings
+            } } }""", {"id": encounter_id})
+        rankings = (data["worldData"]["encounter"] or {}).get("characterRankings") or {}
+        for rank in (rankings.get("rankings") or [])[:5]:
+            code = (rank.get("report") or {}).get("code")
+            if not code:
+                continue
+            rep = self.report_fights([code]).get(code) or {}
+            for ph in rep.get("phases") or []:
+                if ph["encounterID"] == encounter_id and ph.get("phases"):
+                    return ph["phases"]
+        return []
+
     # --- Rapports ------------------------------------------------------------
 
     def report_list(self, guild_id, zone_id, tag_id=None, max_pages=20):

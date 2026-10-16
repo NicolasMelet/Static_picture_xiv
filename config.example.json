@@ -4,6 +4,7 @@
   "difficulty": 101,
   "autostart": true,
   "ultimate_pulls": "cumulative",
+  "encounter_id": null,
 
   "fflogs": {
     "static_id": 141085,

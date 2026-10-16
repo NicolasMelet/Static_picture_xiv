@@ -21,8 +21,9 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
    - en fond, votre image du boss ou de la phase en cours (voir « Images de fond ») ;
    - en haut à gauche, le nom du boss en cours (raid) ou de l'ultime ;
    - en bas à gauche, la progression : `X/Y` (raid) ou `Phase X` (ultime). En sadique, le
-     dernier combat a deux phases et compte double : un tier de 4 boss se compte sur 5, et
-     atteindre la phase 2 du dernier boss compte pour un point ;
+     dernier combat a deux phases et compte double : un tier Arcadion de 4 combats se compte sur
+     5, et atteindre la phase 2 du dernier boss compte pour un point. Les tiers Pandaemonium,
+     où FFLogs sépare déjà le dernier boss en deux combats, se comptent aussi sur 5 ;
    - à droite, les pulls : sur le boss en cours (raid), ou pour chaque phase jusqu'à la
      phase actuelle (ultime, ex. `P1 : 156`, `P2 : 824`) ;
    - en dessous, en gros, le meilleur pourcentage atteint sur le boss / la phase en cours.
@@ -94,19 +95,44 @@ Test manuel (génère et publie une fois) : `ProgFFLogs.exe --once`.
 
 ### Images de fond
 
-Aucune image n'est téléchargée depuis FFLogs. Déposez vos images (de préférence 800 × 300 ou
-plus grandes, même proportion) dans le dossier des images : menu de l'icône → **Ouvrir le dossier
-des images** (`%APPDATA%\ProgFFLogs\images`). Les noms utilisent l'ID FFLogs du combat, donné par
-**Trouver les ID** :
+Aucune image n'est téléchargée depuis FFLogs : les fonds sont vos images, rangées par dossiers
+dans `%APPDATA%\ProgFFLogs\images` (menu de l'icône → **Ouvrir le dossier des images**).
 
-| Fichier | Utilisé pour |
-|---|---|
-| `1079-p3.png` | Phase 3 du combat 1079 (ex. FRU) |
-| `1079.png` | Combat 1079, si aucune image de la phase n'existe |
-| `default.png` | Tout contenu sans image ; remplace l'image par défaut fournie (le chaton, `images/default.jpg`) |
+Menu de l'icône → **Créer les dossiers d'images (raids et ultimes)** crée un dossier par contenu
+sadique et ultime, avec les vrais noms FFLogs, un sous-dossier par boss et un par phase quand le
+combat en a plusieurs. Le dossier du contenu suivi est aussi créé à chaque mise à jour.
 
-Extensions acceptées : `.png`, `.jpg`, `.jpeg`, `.webp`. Les images du dossier `images/` du dépôt
-sont intégrées à l'exécutable et servent si vous n'en avez pas fourni.
+```
+images/
+  default.jpg                     contenu sans image (remplace le chaton)
+  AAC Heavyweight (Savage)/
+    fond.jpg                      facultatif : image commune à tout le contenu
+    1 - Vamp Fatale/              image du boss 1
+    ...
+    4 - Lindwurm/
+      Phase 1/                    dernier boss : une image par phase
+      Phase 2/
+  Futures Rewritten (Ultimate)/
+    Phase 1/  ...  Phase 5/       ultime : une image par phase
+  The Omega Protocol/             ultimes « Legacy » : un dossier par ultime
+    Phase 1/  ...
+```
+
+Déposez une image (n'importe quel nom, `.png`, `.jpg`, `.jpeg`, `.webp`) dans le bon dossier. Le
+programme prend la plus précise disponible : **phase → boss → contenu → default**. Il n'est donc
+pas nécessaire de remplir chaque phase : une image dans le dossier du boss ou du contenu suffit.
+
+- Ne renommez pas les dossiers de contenu. Pour les boss et les phases, seul le début compte
+  (`4 - `, `Phase 2`) ; vous pouvez créer vous-même un dossier `Phase N` manquant.
+- Les phases d'un ultime sont lues sur un rapport public FFLogs ; si ce n'est pas possible, le
+  dossier de l'ultime est créé sans sous-dossiers de phase : créez `Phase 1`, `Phase 2`… à la main.
+- Taille conseillée : 800 × 300 ou plus grand dans la même proportion (recadrage au centre).
+- Les mêmes dossiers placés dans `images/` du dépôt sont intégrés à l'exécutable et servent
+  quand vous n'avez pas d'image pour ce combat.
+
+**Ultimes « Legacy »** (DRU, TOP…) : FFLogs les regroupe dans une même zone. Dans le menu
+**Contenu**, cette zone ouvre un sous-menu pour choisir l'ultime suivi (`encounter_id` dans
+`config.json`).
 
 ### Publier une nouvelle version de l'exécutable
 

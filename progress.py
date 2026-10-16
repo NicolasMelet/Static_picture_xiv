@@ -6,13 +6,14 @@ Ultime : phase actuelle, pulls nécessaires pour passer chaque phase, meilleur %
 """
 
 
-def compute(zone, reports, difficulty=None, ultimate_pulls="cumulative"):
+def compute(zone, reports, difficulty=None, ultimate_pulls="cumulative", content=None):
     """
     zone           : {id, name, encounters: [{id, name}]}
     reports        : rapports renvoyés par FFLogs.report_fights()
     difficulty     : filtre (101 = Sadique) appliqué aux raids, ignoré pour les ultimes
     ultimate_pulls : "cumulative" (Pn = numéro du pull qui a passé la phase n)
                      ou "per_phase" (Pn = pulls passés dans la phase n)
+    content        : nom du dossier d'images (par défaut le nom de la zone)
     """
     encs = [{
         "id": e["id"], "name": e["name"], "pulls": 0, "kills": 0,
@@ -42,21 +43,35 @@ def compute(zone, reports, difficulty=None, ultimate_pulls="cumulative"):
                 if pct is not None and (enc["best_pct"] is None or pct < enc["best_pct"]):
                     enc["best_pct"] = pct
 
-    real = [p for p in encs[0]["phases"] if not p.get("isIntermission")] if single else []
+    real = real_phases(encs[0]) if single else []
     if single and len(real) > 1:
         view = _ultimate(encs[0], len(real), ultimate_pulls)
     else:
         view = _raid(encs)
-    view.update(zone_id=zone["id"], zone_name=zone["name"])
+    view.update(zone_id=zone["id"], zone_name=zone["name"], content=content or zone["name"])
     for enc in encs:
         del enc["fights"]
     view["encounters"] = encs
     return view
 
 
+def real_phases(enc):
+    return [p for p in enc["phases"] if not p.get("isIntermission")]
+
+
+def last_boss_counts_double(encs):
+    """Sadique : le dernier boss en deux phases compte double (Arcadion : 4 combats -> X/5).
+    Pandaemonium sépare déjà ses derniers boss en deux combats (5 combats) : pas de doublement."""
+    if len(encs) < 2:
+        return False
+    last = encs[-1]
+    if last["phases"]:
+        return len(real_phases(last)) >= 2
+    return len(encs) == 4
+
+
 def _raid(encs):
-    """Sadique : le dernier combat a toujours deux phases, il compte double (4 boss -> X/5)."""
-    last = encs[-1] if len(encs) > 1 else None
+    last = encs[-1] if last_boss_counts_double(encs) else None
     total = len(encs) + (1 if last else 0)
     current = next((e for e in encs if not e["kills"]), encs[-1])
     cleared = all(e["kills"] for e in encs)
@@ -81,6 +96,7 @@ def _raid(encs):
         "mode": "boss",
         "title": current["name"],
         "encounter_id": current["id"],
+        "boss_index": encs.index(current) + 1,
         "phase": phase,
         "done": done,
         "total": total,
@@ -118,6 +134,7 @@ def _ultimate(enc, total, mode):
         "mode": "phases",
         "title": enc["name"],
         "encounter_id": enc["id"],
+        "boss_index": None,
         "phase": current,
         "done": total if cleared else current - 1,
         "total": total,
