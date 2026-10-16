@@ -1,0 +1,28 @@
+{
+  "team_name": "Wipe Lotus",
+  "zone_id": 73,
+  "difficulty": 101,
+
+  "fflogs": {
+    "client_id": "COLLER_ICI",
+    "client_secret": "COLLER_ICI",
+    "guild_name": "NOM_DE_LA_GUILDE",
+    "server": "nom-du-serveur",
+    "region": "EU",
+    "guild_id": null,
+    "static_tag_id": null
+  },
+
+  "github": {
+    "token": "github_pat_COLLER_ICI",
+    "repo": "UTILISATEUR/fflogs-prog",
+    "branch": "gh-pages",
+    "path": "prog.png"
+  },
+
+  "poll": {
+    "active_seconds": 120,
+    "idle_seconds": 900,
+    "process_names": ["Archon.exe", "Advanced Combat Tool.exe"]
+  }
+}
