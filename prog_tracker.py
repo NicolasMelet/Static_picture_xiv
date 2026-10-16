@@ -165,18 +165,59 @@ def write_json(path, data):
         json.dump(data, fh, ensure_ascii=False)
 
 
+def running_process_names():
+    """Noms des processus Windows en cours, via l'API Windows (CreateToolhelp32Snapshot) :
+    quelques millisecondes, sans lancer de programme externe comme tasklist."""
+    import ctypes
+    from ctypes import wintypes
+
+    class PROCESSENTRY32W(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_size_t),
+                    ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long),
+                    ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+
+    snapshot = kernel32.CreateToolhelp32Snapshot(0x00000002, 0)    # TH32CS_SNAPPROCESS
+    if snapshot in (None, wintypes.HANDLE(-1).value):
+        raise OSError(ctypes.get_last_error(), "CreateToolhelp32Snapshot")
+    try:
+        entry = PROCESSENTRY32W()
+        entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+        names = set()
+        ok = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
+        while ok:
+            names.add(entry.szExeFile.lower())
+            ok = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
+        return names
+    finally:
+        kernel32.CloseHandle(snapshot)
+
+
 def archon_running(names):
-    """Vrai si l'application Archon (ou ACT) tourne : on interroge FFLogs plus souvent."""
+    """Vrai si l'application Archon (ou ACT) tourne : on interroge alors FFLogs."""
     if os.name != "nt":
         return False
     try:
-        out = subprocess.run(
-            ["tasklist", "/fo", "csv", "/nh"], capture_output=True, text=True,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        ).stdout.lower()
-    except OSError:
-        return False
-    return any(f'"{n.lower()}"' in out for n in names)
+        running = running_process_names()
+    except Exception:
+        log.exception("Liste des processus via l'API Windows impossible, repli sur tasklist")
+        try:
+            out = subprocess.run(
+                ["tasklist", "/fo", "csv", "/nh"], capture_output=True, text=True,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            ).stdout.lower()
+        except OSError:
+            return False
+        return any(f'"{n.lower()}"' in out for n in names)
+    return any(n.lower() in running for n in names)
 
 
 class Tracker:
@@ -511,6 +552,15 @@ def selftest():
     assert path and path.stem == "default", path
     render(compute(zone, [{"fights": fights}]), "Selftest", out, bg)
     assert out.stat().st_size > 0
+    if os.name == "nt":
+        own = Path(sys.executable).name
+        start = time.perf_counter()
+        names = running_process_names()
+        elapsed = (time.perf_counter() - start) * 1000
+        (DATA / "selftest.txt").write_text(            # lu par le build (pas de console)
+            f"{len(names)} processus listés en {elapsed:.1f} ms\n", encoding="utf-8")
+        assert own.lower() in names, f"{own} absent de la liste des processus"
+        assert archon_running([own]) and not archon_running(["inexistant-xyz.exe"])
     return 0
 
 

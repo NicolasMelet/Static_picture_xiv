@@ -49,6 +49,7 @@ jobs:
             Get-Content "$env:APPDATA\ProgFFLogs\selftest-error.txt" -ErrorAction SilentlyContinue
             throw "selftest a échoué (code $($p.ExitCode))"
           }
+          Get-Content "$env:APPDATA\ProgFFLogs\selftest.txt" -ErrorAction SilentlyContinue
           Write-Host "selftest OK"
 
       - uses: actions/upload-artifact@v4
