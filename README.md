@@ -101,7 +101,7 @@ des images** (`%APPDATA%\ProgFFLogs\images`). Les noms utilisent l'ID FFLogs du 
 |---|---|
 | `1079-p3.png` | Phase 3 du combat 1079 (ex. FRU) |
 | `1079.png` | Combat 1079, si aucune image de la phase n'existe |
-| `default.png` | Tout contenu sans image ; remplace l'image par défaut fournie |
+| `default.png` | Tout contenu sans image ; remplace l'image par défaut fournie (le chaton, `images/default.jpg`) |
 
 Extensions acceptées : `.png`, `.jpg`, `.jpeg`, `.webp`. Les images du dossier `images/` du dépôt
 sont intégrées à l'exécutable et servent si vous n'en avez pas fourni.
