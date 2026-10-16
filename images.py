@@ -18,7 +18,8 @@ import catalog
 
 log = logging.getLogger("prog")
 EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
-README_NAME = "LISEZ-MOI.txt"
+README_NAME = "README.txt"
+OLD_README_NAME = "LISEZ-MOI.txt"          # v1.1.0
 # « Phase 2 », « Phase 2 - Nidhogg », « P2 » ; mais pas « P4S - Hesperos » (code de raid).
 PHASE_RX = re.compile(r"^(phase|p)\s*0*(\d+)(?![0-9a-z])", re.IGNORECASE)
 CODE_RX = re.compile(r"^[^-]{1,14}?\s-\s")       # « M1S - », « P4S (1) - », « EX3 - »
@@ -27,7 +28,7 @@ CODE_RX = re.compile(r"^[^-]{1,14}?\s-\s")       # « M1S - », « P4S (1) - »,
 def folder_name(name):
     """Nom de dossier valide sous Windows."""
     name = re.sub(r'[<>:"/\\|?*]', "-", name).strip().rstrip(".")
-    return name or "Sans nom"
+    return name or "Unnamed"
 
 
 def normalize(text):
@@ -134,38 +135,54 @@ def load_background(fight_name, zone_name, phase, user_dir, bundled_dir):
 
 # --- Création de l'arborescence -------------------------------------------------
 
-README_TEXT = """Images de fond de Prog FFLogs
+README_TEXT = """Prog FFLogs - background images
 ==============================
 
-  1 - Ultimates          un dossier par ultime, un sous-dossier par phase
-  2 - Raids sadiques     extension > palier > un dossier par boss
-  3 - Extrêmes           extension > un dossier par défi extrême
-  4 - Autres contenus    combats absents du catalogue (créés automatiquement)
+  1 - Ultimates        one folder per ultimate, one sub-folder per phase
+  2 - Savage Raids     expansion > tier > one folder per boss
+  3 - Extremes         expansion > one folder per extreme trial
+  4 - Other Content    fights missing from the catalog (created automatically)
 
-Déposez une image (.png, .jpg, .jpeg ou .webp, n'importe quel nom) dans le dossier du combat.
-Le programme prend la plus précise disponible :
+Drop an image (.png, .jpg, .jpeg or .webp, any file name) into the fight's folder.
+The program uses the most specific one available:
 
-  1. le dossier de la phase en cours  (ex. « Phase 3 - Oracle of Darkness »)
-  2. le dossier du combat             (ex. « M12S - Lindwurm »)
-  3. les dossiers au-dessus           (palier, extension, catégorie : image commune)
-  4. default.jpg / default.png ici, à la racine (sinon le chaton fourni avec le programme)
+  1. the current phase folder   (e.g. "Phase 3 - Oracle of Darkness")
+  2. the fight folder           (e.g. "M12S - Lindwurm")
+  3. the folders above it       (tier, expansion, category: shared image)
+  4. default.jpg / default.png here, at the root (otherwise the bundled kitten)
 
-Une seule image dans le dossier d'un ultime suffit donc pour toutes ses phases.
+A single image in an ultimate's folder is therefore enough for all of its phases.
 
-Règles de nommage :
-  - Dossier d'un combat : « CODE - Nom FFLogs ». Gardez le nom anglais après « - » : c'est lui
-    qui identifie le combat. Le code devant (M12S, P4S (1), EX3...) est libre.
-  - Dossier d'une phase : commence par « Phase N ». La suite est libre.
-  - Vous pouvez créer d'autres dossiers ou phases : ils seront pris en compte.
-  - S'il y a plusieurs images dans un dossier, la première par ordre alphabétique est utilisée.
+Naming rules:
+  - Fight folder: "CODE - FFLogs name". Keep the English name after " - ": it identifies the
+    fight. The code in front (M12S, P4S (1), EX3...) and the numbers are only for sorting.
+  - Phase folder: starts with "Phase N" (or "PN"). The rest is free.
+  - You can add other folders or phases: they will be picked up.
+  - If a folder holds several images, the first one in alphabetical order is used.
 
-Taille conseillée : 800 x 300 (ou plus grand, même proportion) ; sinon recadrage au centre.
+Recommended size: 800 x 300 (or larger with the same ratio); otherwise it is center-cropped.
 """
 
 
-def create_skeleton(base):
-    """Crée les dossiers du catalogue et le LISEZ-MOI (n'efface ni ne renomme rien)."""
+def migrate(base):
+    """Renomme les dossiers français de la v1.1.0 (images déjà rangées comprises)."""
     base = Path(base)
+    if not base.is_dir():
+        return
+    for d in sorted(base.rglob("*"), key=lambda p: -len(p.parts)):   # les plus profonds d'abord
+        new = catalog.RENAMED.get(d.name)
+        if d.is_dir() and new and not (d.parent / new).exists():
+            d.rename(d.parent / new)
+    old_readme = base / OLD_README_NAME
+    if old_readme.is_file():
+        old_readme.unlink()
+
+
+def create_skeleton(base):
+    """Crée les dossiers du catalogue et le README.txt (n'efface ni ne renomme rien d'autre que
+    les anciens noms français de la v1.1.0)."""
+    base = Path(base)
+    migrate(base)
     for rel in catalog.folders():
         (base / Path(*[folder_name(part) for part in rel.split("/")])).mkdir(
             parents=True, exist_ok=True)

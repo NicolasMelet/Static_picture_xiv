@@ -9,8 +9,8 @@
   "fflogs": {
     "static_id": 141085,
     "static_name": "Wipe Lotus",
-    "guild_name": "NOM_DE_LA_FREE_COMPANY",
-    "server": "nom-du-serveur",
+    "guild_name": "FREE_COMPANY_NAME",
+    "server": "server-name",
     "region": "EU",
     "raid_team_id": null
   },

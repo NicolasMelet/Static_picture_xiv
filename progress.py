@@ -102,7 +102,7 @@ def _raid(encs):
         "total": total,
         "cleared": cleared,
         "progress_label": f"{done}/{total}",
-        "pulls_lines": [f"Pulls : {current['pulls']}"],
+        "pulls_lines": [f"Pulls: {current['pulls']}"],
         "best_pct": None if cleared else best,
     }
 
@@ -128,7 +128,7 @@ def _ultimate(enc, total, mode):
         at = passed_at.get(p, enc["pulls"])          # phase en cours : pulls jusqu'ici
         count = at if mode == "cumulative" else at - previous
         previous = at
-        lines.append(f"P{p} : {count}")
+        lines.append(f"P{p}: {count}")
 
     return {
         "mode": "phases",

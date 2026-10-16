@@ -67,7 +67,7 @@ def load_env(path=ENV_FILE):
 
 def secret(name):
     value = os.environ.get(name, "").strip()
-    if not value or value.startswith("COLLER_ICI"):
+    if not value or value.startswith(("PASTE_HERE", "COLLER_ICI")):
         raise SystemExit(f"{name} manquant : renseignez-le dans {ENV_FILE}")
     return value
 
@@ -292,7 +292,7 @@ class Tracker:
         digest = hashlib.sha1(json.dumps(
             prog, sort_keys=True, default=str).encode()).hexdigest()
         if force or digest != self.state.get("digest"):
-            self.state["pending"] = f"Prog {zone['name']} : {prog['done']}/{prog['total']}"
+            self.state["pending"] = f"Prog {zone['name']}: {prog['done']}/{prog['total']}"
         else:
             log.info("Progression inchangée, pas de publication")
 
@@ -518,7 +518,7 @@ def setup_lines(cfg):
         for z in zones:
             print(f"    {z['id']:>4}  {z['name']}")
             for e in z["encounters"]:
-                print(f"            image : {e['id']}.png / {e['id']}-p<phase>.png  ({e['name']})")
+                print(f"            combat : {e['name']}  (id {e['id']})")
     return out
 
 

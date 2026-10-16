@@ -88,12 +88,15 @@ def render(view, team_name, out_path, bg_image=None):
     title_font = fit_font(d, view["title"], 44, half - PAD)
     text(d, (PAD, PAD - 4), view["title"], title_font)
     sub = team_name or ""
-    sub += ("  ·  " if sub else "") + "MAJ " + datetime.now().strftime("%d/%m %H:%M")
+    now = datetime.now()                     # date en anglais, quelle que soit la langue de Windows
+    month = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()[now.month - 1]
+    sub += ("  ·  " if sub else "") + f"Updated {now.day} {month} {now:%H:%M}"
     text(d, (PAD, PAD + title_font.size + 6), sub, font(16), MUTED)
 
     # En bas à gauche : progression.
     cleared = view["cleared"]
-    caption = "boss vaincus" if view["mode"] == "boss" else ("ultime" if cleared else "phase actuelle")
+    caption = "bosses defeated" if view["mode"] == "boss" else \
+        ("ultimate" if cleared else "current phase")
     color = KILL if cleared else TEXT
     text(d, (PAD, H - PAD - 74), caption.upper(), font(16, True), MUTED, anchor="ls")
     text(d, (PAD, H - PAD + 4), view["progress_label"], font(72, True), color, anchor="ls")
@@ -110,9 +113,9 @@ def render(view, team_name, out_path, bg_image=None):
     if cleared:
         big, big_color, big_caption = "CLEAR", KILL, ""
     elif view["best_pct"] is not None:
-        big, big_color, big_caption = f"{view['best_pct']:.1f}%", ACCENT, "meilleur %"
+        big, big_color, big_caption = f"{view['best_pct']:.1f}%", ACCENT, "best %"
     else:
-        big, big_color, big_caption = "—", MUTED, "meilleur %"
+        big, big_color, big_caption = "—", MUTED, "best %"
     big_font = fit_font(d, big, 72, W - half - PAD)
     big_y = max(H - PAD + 4, y + 22 + big_font.size)
     text(d, (right, big_y), big, big_font, big_color, anchor="rs")

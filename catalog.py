@@ -7,9 +7,22 @@ Les phases sont des sous-dossiers « Phase N - ... » ; seul « Phase N » compt
 """
 
 ULTIMATES = "1 - Ultimates"
-SAVAGE = "2 - Raids sadiques"
-EXTREME = "3 - Extrêmes"
-OTHER = "4 - Autres contenus"     # créé par le programme pour les combats absents du catalogue
+SAVAGE = "2 - Savage Raids"
+EXTREME = "3 - Extremes"
+OTHER = "4 - Other Content"     # créé par le programme pour les combats absents du catalogue
+
+
+# Noms utilisés par la v1.1.0, renommés automatiquement au lancement (voir images.migrate).
+RENAMED = {
+    "2 - Raids sadiques": SAVAGE,
+    "3 - Extrêmes": EXTREME,
+    "4 - Autres contenus": OTHER,
+    "Phase 2 - Brute Justice et Cruise Chaser": "Phase 2 - Brute Justice and Cruise Chaser",
+    "Phase 1 - Adelphel, Grinnaux et Charibert": "Phase 1 - Adelphel, Grinnaux and Charibert",
+    "Phase 6 - Nidhogg et Hraesvelgr": "Phase 6 - Nidhogg and Hraesvelgr",
+    "Phase 2 - Omega-M et Omega-F": "Phase 2 - Omega-M and Omega-F",
+    "Phase 4 - Usurper et Oracle": "Phase 4 - Usurper and Oracle",
+}
 
 
 def _phases(*names):
@@ -25,16 +38,16 @@ TREE = {
             "Twintania", "Nael deus Darnus", "Bahamut Prime", "Triple Threat", "Golden Bahamut"),
         "2. UWU - The Weapon's Refrain (Ultima Weapon)": _phases("Garuda", "Ifrit", "Titan", "The Ultima Weapon"),
         "3. TEA - The Epic of Alexander": _phases(
-            "Living Liquid", "Brute Justice et Cruise Chaser", "Alexander Prime",
+            "Living Liquid", "Brute Justice and Cruise Chaser", "Alexander Prime",
             "Perfect Alexander"),
         "4. DSR - Dragonsong's Reprise": _phases(
-            "Adelphel, Grinnaux et Charibert", "King Thordan", "Nidhogg", "The Eyes of Nidhogg",
-            "Alternate Thordan", "Nidhogg et Hraesvelgr", "Dragon-king Thordan"),
+            "Adelphel, Grinnaux and Charibert", "King Thordan", "Nidhogg", "The Eyes of Nidhogg",
+            "Alternate Thordan", "Nidhogg and Hraesvelgr", "Dragon-king Thordan"),
         "5. TOP - The Omega Protocol": _phases(
-            "Omega", "Omega-M et Omega-F", "Omega Reconfigured", "Blue Screen",
+            "Omega", "Omega-M and Omega-F", "Omega Reconfigured", "Blue Screen",
             "Run Dynamis", "Alpha Omega"),
         "6. FRU - Futures Rewritten": _phases(
-            "Fatebreaker", "Usurper of Frost", "Oracle of Darkness", "Usurper et Oracle",
+            "Fatebreaker", "Usurper of Frost", "Oracle of Darkness", "Usurper and Oracle",
             "Pandora"),
         "7. DMU - Dancing Mad": _phases("Kefka", None, None, None, None),
     }},
