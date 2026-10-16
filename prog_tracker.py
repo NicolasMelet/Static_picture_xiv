@@ -24,6 +24,7 @@ from render import render
 
 HERE = Path(__file__).resolve().parent
 CONFIG = HERE / "config.json"
+ENV_FILE = HERE / ".env"
 CACHE = HERE / "cache"
 OUTPUT = HERE / "output" / "prog.png"
 
@@ -35,6 +36,31 @@ logging.basicConfig(
 log = logging.getLogger("prog")
 if sys.stdout and sys.stdout.isatty():
     log.addHandler(logging.StreamHandler(sys.stdout))
+
+
+def load_env(path=ENV_FILE):
+    """Charge les clés depuis .env (KEY=valeur), sans écraser les variables déjà définies."""
+    try:
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+def secret(name):
+    value = os.environ.get(name, "").strip()
+    if not value or value.startswith("COLLER_ICI"):
+        raise SystemExit(f"{name} manquant : renseignez-le dans {ENV_FILE}")
+    return value
+
+
+def fflogs_client():
+    return FFLogs(secret("FFLOGS_CLIENT_ID"), secret("FFLOGS_CLIENT_SECRET"))
 
 
 def load_config():
@@ -78,9 +104,9 @@ def archon_running(names):
 class Tracker:
     def __init__(self, cfg):
         self.cfg = cfg
-        self.api = FFLogs(cfg["fflogs"]["client_id"], cfg["fflogs"]["client_secret"])
+        self.api = fflogs_client()
         gh = cfg["github"]
-        self.pages = GitHubPages(gh["token"], gh["repo"], gh.get("branch", "gh-pages"),
+        self.pages = GitHubPages(secret("GITHUB_TOKEN"), gh["repo"], gh.get("branch", "gh-pages"),
                                  gh.get("path", "prog.png"))
         self.wake = threading.Event()
         self.stop = threading.Event()
@@ -134,14 +160,30 @@ class Tracker:
         digest = hashlib.sha1(json.dumps(
             prog, sort_keys=True, default=str).encode()).hexdigest()
         if force or digest != self.state.get("digest"):
-            url = self.pages.upload(OUTPUT, f"Prog {zone['name']} : {prog['done']}/{prog['total']}")
-            log.info("Image publiée : %s", url)
+            self.state["pending"] = f"Prog {zone['name']} : {prog['done']}/{prog['total']}"
         else:
             log.info("Progression inchangée, pas de publication")
 
         self.state.update(signature=signature, digest=digest)
         write_json(CACHE / "state.json", self.state)
+        self.publish_if_due()
         return True
+
+    def publish_if_due(self):
+        """Publie l'image en attente, au plus une fois toutes les `min_publish_seconds`
+        (GitHub Pages limite les déploiements à ~10 par heure). N'appelle pas FFLogs."""
+        message = self.state.get("pending")
+        if not message or not OUTPUT.exists():
+            return
+        wait = self.cfg.get("github", {}).get("min_publish_seconds", 600)
+        remaining = self.state.get("last_publish", 0) + wait - time.time()
+        if remaining > 0:
+            log.info("Publication différée de %d s (limite GitHub Pages)", remaining)
+            return
+        url = self.pages.upload(OUTPUT, message)
+        log.info("Image publiée : %s", url)
+        self.state.update(pending=None, last_publish=time.time())
+        write_json(CACHE / "state.json", self.state)
 
     # --- Boucle --------------------------------------------------------------
 
@@ -167,6 +209,11 @@ class Tracker:
                 except Exception:
                     log.exception("Erreur pendant la mise à jour")
                 last_check = time.monotonic()
+            else:
+                try:
+                    self.publish_if_due()
+                except Exception:
+                    log.exception("Erreur pendant la publication")
             was_running = running
             self.wake.wait(watch)
             self.wake.clear()
@@ -259,7 +306,7 @@ def resolve_static(api, f):
 
 
 def setup(cfg):
-    api = FFLogs(cfg["fflogs"]["client_id"], cfg["fflogs"]["client_secret"])
+    api = fflogs_client()
     f = cfg["fflogs"]
     if f.get("guild_name"):
         g = api.guild(name=f["guild_name"], server=f.get("server"), region=f.get("region"))
@@ -289,11 +336,15 @@ def main():
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--setup", action="store_true")
     args = ap.parse_args()
+    load_env()
     cfg = load_config()
     if args.setup:
         setup(cfg)
     elif args.once:
-        Tracker(cfg).check(force=True)
+        tracker = Tracker(cfg)
+        tracker.check(force=True)
+        if tracker.state.get("pending"):
+            print("Publication différée (limite de fréquence), elle sera faite par le suivi.")
         print("OK :", OUTPUT)
     else:
         run_tray(Tracker(cfg))

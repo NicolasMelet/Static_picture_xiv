@@ -4,8 +4,6 @@
   "difficulty": 101,
 
   "fflogs": {
-    "client_id": "COLLER_ICI",
-    "client_secret": "COLLER_ICI",
     "static_id": null,
     "static_name": "Wipe Lotus",
     "guild_name": "NOM_DE_LA_FREE_COMPANY",
@@ -15,10 +13,10 @@
   },
 
   "github": {
-    "token": "github_pat_COLLER_ICI",
     "repo": "NicolasMelet/Static_picture_xiv",
     "branch": "gh-pages",
-    "path": "prog.png"
+    "path": "prog.png",
+    "min_publish_seconds": 600
   },
 
   "poll": {

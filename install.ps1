@@ -12,10 +12,21 @@ Write-Host "Création de l'environnement Python..."
 & "$dir\.venv\Scripts\python.exe" -m pip install --upgrade pip -q
 & "$dir\.venv\Scripts\python.exe" -m pip install -r "$dir\requirements.txt" -q
 
+$missing = $false
+if (-not (Test-Path "$dir\.env")) {
+    Copy-Item "$dir\.env.example" "$dir\.env"
+    Write-Host ".env créé : collez-y vos clés FFLogs et GitHub (il ne sera jamais poussé)." -ForegroundColor Yellow
+    notepad "$dir\.env"
+    $missing = $true
+}
 if (-not (Test-Path "$dir\config.json")) {
     Copy-Item "$dir\config.example.json" "$dir\config.json"
-    Write-Host "config.json créé : remplissez-le puis relancez install.ps1." -ForegroundColor Yellow
+    Write-Host "config.json créé : remplissez-le." -ForegroundColor Yellow
     notepad "$dir\config.json"
+    $missing = $true
+}
+if ($missing) {
+    Write-Host "Relancez install.ps1 une fois les fichiers remplis." -ForegroundColor Yellow
     exit
 }
 
