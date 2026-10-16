@@ -55,20 +55,39 @@ def compute(zone, reports, difficulty=None, ultimate_pulls="cumulative"):
 
 
 def _raid(encs):
-    done = sum(1 for e in encs if e["kills"])
+    """Sadique : le dernier combat a toujours deux phases, il compte double (4 boss -> X/5)."""
+    last = encs[-1] if len(encs) > 1 else None
+    total = len(encs) + (1 if last else 0)
     current = next((e for e in encs if not e["kills"]), encs[-1])
-    cleared = done == len(encs)
+    cleared = all(e["kills"] for e in encs)
+
+    done = sum(1 for e in encs if e["kills"])
+    phase, best = None, None if current["kills"] else current["best_pct"]
+    if last:
+        if last["kills"]:
+            done += 1                                  # deuxième phase du dernier boss
+        elif current is last:
+            reached_p2 = [f for f in last["fights"] if _phases_done(last, f) >= 1]
+            phase = 2 if reached_p2 else 1
+            done += phase - 1
+            # Meilleur % de la phase en cours : vie du boss sur les pulls arrivés à cette phase.
+            pulls = reached_p2 or last["fights"]
+            pcts = [f.get("bossPercentage") if phase == 2 else f.get("fightPercentage")
+                    for f in pulls if not f.get("kill")]
+            pcts = [p for p in pcts if p is not None]
+            best = min(pcts) if pcts else None
+
     return {
         "mode": "boss",
         "title": current["name"],
         "encounter_id": current["id"],
-        "phase": None,
+        "phase": phase,
         "done": done,
-        "total": len(encs),
+        "total": total,
         "cleared": cleared,
-        "progress_label": f"{done}/{len(encs)}",
+        "progress_label": f"{done}/{total}",
         "pulls_lines": [f"Pulls : {current['pulls']}"],
-        "best_pct": None if current["kills"] else current["best_pct"],
+        "best_pct": None if cleared else best,
     }
 
 

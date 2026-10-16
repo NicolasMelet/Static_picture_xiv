@@ -20,7 +20,9 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
    calcule la progression et génère l'image (800 × 300) :
    - en fond, votre image du boss ou de la phase en cours (voir « Images de fond ») ;
    - en haut à gauche, le nom du boss en cours (raid) ou de l'ultime ;
-   - en bas à gauche, la progression : `X/Y` boss vaincus (raid) ou `Phase X` (ultime) ;
+   - en bas à gauche, la progression : `X/Y` (raid) ou `Phase X` (ultime). En sadique, le
+     dernier combat a deux phases et compte double : un tier de 4 boss se compte sur 5, et
+     atteindre la phase 2 du dernier boss compte pour un point ;
    - à droite, les pulls : sur le boss en cours (raid), ou pour chaque phase jusqu'à la
      phase actuelle (ultime, ex. `P1 : 156`, `P2 : 824`) ;
    - en dessous, en gros, le meilleur pourcentage atteint sur le boss / la phase en cours.
