@@ -35,6 +35,7 @@ jobs:
         run: >
           pyinstaller --noconfirm --onefile --windowed --name ProgFFLogs --icon icon.ico
           --add-data "icon.ico;."
+          --add-data "fonts;fonts"
           --add-data "config.example.json;."
           --add-data ".env.example;."
           --add-data "images;images"

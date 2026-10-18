@@ -208,6 +208,8 @@ In development, `.env`, `config.json` and the log sit next to the script (ignore
 
 ## Good to know
 
+- **Font**: the image uses [Titan One](https://fonts.google.com/specimen/Titan+One) by Rodrigo
+  Fuenzalida, bundled under the SIL Open Font License (`fonts/titan-one-license.txt`).
 - **Private logs**: the API in "client" mode cannot see *private* reports. Public reports are
   included; *unlisted* reports are read when FFLogs includes them in the static's report list.
 - **Uninstall**: untick **Start with Windows**, **Quit**, then delete `ProgFFLogs.exe` and

@@ -5,22 +5,28 @@ Bottom left:  best % (large), current phase if any, then "N pulls".
 Bottom right: raid -> X/Y (large); ultimate -> "Pulls:" and the pull on which each phase
               was first cleared (P1: 156, P2: 824...).
 """
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 WIDTH, HEIGHT = 850, 450
 MARGIN = 26
-TITLE_SIZE, BIG_SIZE, PHASE_SIZE, SMALL_SIZE = 38, 68, 32, 22
+TITLE_SIZE, BIG_SIZE, SMALL_SIZE = 38, 68, 22
+PHASE_SIZE = BIG_SIZE * 2 // 3      # "Phase X": two thirds of the best %
+PULLS_SIZE = BIG_SIZE // 2          # "N pulls": half of the best %
 
 EMPTY_BACKGROUND = (22, 24, 31)
 WHITE = (255, 255, 255)
 YELLOW = (255, 214, 64)
 GREEN = (110, 230, 140)
+GREY = (200, 204, 212)             # every pull counter
 BLACK = (0, 0, 0)
 
-FONT_FILES = ["C:/Windows/Fonts/segoeuib.ttf", "DejaVuSans-Bold.ttf",
-              "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
+# Titan One (SIL Open Font License, see fonts/titan-one-license.txt), bundled with the program.
+FONT_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "fonts"
+FONT_FILES = [FONT_DIR / "titan-one-regular.ttf", "C:/Windows/Fonts/segoeuib.ttf",
+              "DejaVuSans-Bold.ttf"]
 
 
 def font(size):
@@ -83,8 +89,8 @@ def render(view, out_path, background_image=None):
     y = HEIGHT - MARGIN + 4
     pulls = view["pulls"]
     outlined_text(draw, (MARGIN, y), f"{pulls} pull{'s' if pulls != 1 else ''}",
-                  font(SMALL_SIZE), anchor="ls")
-    y -= SMALL_SIZE + 12
+                  font(PULLS_SIZE), GREY, anchor="ls")
+    y -= PULLS_SIZE + 12
     if view["phase"] and not cleared:
         outlined_text(draw, (MARGIN, y), f"Phase {view['phase']}", font(PHASE_SIZE), anchor="ls")
         y -= PHASE_SIZE + 10
@@ -104,7 +110,7 @@ def render(view, out_path, background_image=None):
             lines.insert(0, "Pulls:")
         y = HEIGHT - MARGIN + 4
         for line in reversed(lines):
-            outlined_text(draw, (right, y), line, font(SMALL_SIZE), anchor="rs")
+            outlined_text(draw, (right, y), line, font(SMALL_SIZE), GREY, anchor="rs")
             y -= SMALL_SIZE + 6
     else:
         outlined_text(draw, (right, HEIGHT - MARGIN + 6), f"{view['done']}/{view['total']}",
