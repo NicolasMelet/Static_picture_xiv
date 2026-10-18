@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 WIDTH, HEIGHT = 850, 450
 MARGIN = 40
 TITLE_SIZE, BIG_SIZE, PULLS_SIZE = 38, 68, 30
-LINE_GAP = 4                        # space between best %, "Phase X" and "N pulls"
+LINE_GAP = 2                        # space between best %, "Phase X" and "N pulls"
 PHASE_SIZE = BIG_SIZE * 2 // 3      # "Phase X" and raid "X/Y": two thirds of the best %
 
 EMPTY_BACKGROUND = (22, 24, 31)
