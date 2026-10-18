@@ -448,7 +448,7 @@ def selftest():
         assert (BUNDLE / template).read_text(encoding="utf-8")
     from PIL import Image
     assert Image.open(BUNDLE / "icon.ico").size[0] > 0
-    assert (BUNDLE / "fonts" / "titan-one-regular.ttf").is_file()
+    assert (BUNDLE / "fonts" / "lilita-one-regular.ttf").is_file()
     folders = DATA / "selftest-images"
     create_folders(folders)
     assert (folders / "1_ultimates" / "6_fru_futures-rewritten").is_dir()

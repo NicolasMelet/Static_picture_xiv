@@ -23,9 +23,9 @@ GREEN = (110, 230, 140)
 GREY = (200, 204, 212)             # every pull counter
 BLACK = (0, 0, 0)
 
-# Titan One (SIL Open Font License, see fonts/titan-one-license.txt), bundled with the program.
+# Lilita One (SIL Open Font License, see fonts/lilita-one-license.txt), bundled with the program.
 FONT_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "fonts"
-FONT_FILES = [FONT_DIR / "titan-one-regular.ttf", "C:/Windows/Fonts/segoeuib.ttf",
+FONT_FILES = [FONT_DIR / "lilita-one-regular.ttf", "C:/Windows/Fonts/segoeuib.ttf",
               "DejaVuSans-Bold.ttf"]
 
 
