@@ -147,6 +147,26 @@ images/
   4_other-content/                     fights missing from the catalog (created automatically)
 ```
 
+**Example: savage (AAC Heavyweight)**, in `images/2_savage-raids/6_dawntrail/3_aac-heavyweight/`:
+
+```
+m9s_vamp-fatale/vamp-fatale.png            M9S
+m10s_red-hot-and-deep-blue/red-hot.png     M10S
+m11s_the-tyrant/tyrant.jpg                 M11S
+m12s_lindwurm/lindwurm-p1.png              M12S, phase 1
+m12s_lindwurm/lindwurm-p2.png              M12S, phase 2
+```
+
+**Example: ultimate (Futures Rewritten)**, in `images/1_ultimates/6_fru_futures-rewritten/`:
+
+```
+fatebreaker-p1.png        phase 1
+usurper-of-frost-p2.png   phase 2
+oracle-p3.png             phase 3   (added when the static reaches phase 3)
+```
+
+While the static is in phase 4 and there is no `-p4` image yet, the default image is shown.
+
 Which image is used:
 
 - **Ultimate**: the `-p<n>` image of the current phase, otherwise the default image. The number of
