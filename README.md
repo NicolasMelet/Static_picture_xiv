@@ -113,40 +113,48 @@ No image is downloaded from FFLogs: the backgrounds are your own images, stored 
 folders are created when the program starts; they are also visible in the repository's
 [`images/`](images) folder.
 
+**Naming convention** (folders and files): lowercase, no spaces, no accents; words are joined
+with `-`, and `_` separates the prefixes (order number, raid code) from the name.
+
+| What | Pattern | Example |
+|---|---|---|
+| Category / expansion / tier | `<order>_<name>` | `2_savage-raids/6_dawntrail/3_aac-heavyweight` |
+| Fight | `<order or code>_<fflogs-name>` | `6_fru_futures-rewritten`, `m12s_lindwurm`, `p4s-1_hesperos` |
+| Phase image | `phase-<n>.<ext>` | `phase-3.png` |
+| Fight image | any other name | `lindwurm.png` |
+| Default image | `default.<ext>` at the root | `default.jpg` |
+
+The part after the last `_` of a fight folder is the fight's FFLogs name: it is what the program
+looks for, keep it. Extensions: `.png`, `.jpg`, `.jpeg`, `.webp`.
+
 ```
 images/
-  default.jpg                       used when no image fits (the kitten)
-  README.txt                        reminder of the rules below
-  1 - Ultimates/
-    6. FRU - Futures Rewritten/     one folder per ultimate
-      Phase 1.png
-      Phase 2.png                   add each phase image when you reach it
-  2 - Savage Raids/
-    6 - Dawntrail/3 - AAC Heavyweight/
-      M9S - Vamp Fatale/
-        vamp.png                    image of the boss (any name)
-      M12S - Lindwurm/
+  default.jpg                          used when no image fits (the kitten)
+  readme.txt                           reminder of these rules
+  1_ultimates/
+    6_fru_futures-rewritten/
+      phase-1.png
+      phase-2.png                      add each phase image when you reach it
+  2_savage-raids/
+    6_dawntrail/3_aac-heavyweight/
+      m9s_vamp-fatale/
+        vamp-fatale.png                image of the boss
+      m12s_lindwurm/
         lindwurm.png
-        Phase 2.png                 optional: image of phase 2 only
-  3 - Extremes/
-    6 - Dawntrail/EX1 - Valigarmanda/
-  4 - Other Content/                fights missing from the catalog (created automatically)
+        phase-2.png                    optional: image of phase 2 only
+  3_extremes/
+    6_dawntrail/ex1_valigarmanda/
+  4_other-content/                     fights missing from the catalog (created automatically)
 ```
 
-Rules (`.png`, `.jpg`, `.jpeg` or `.webp`):
+Which image is used:
 
-- **Phase image**: a file named `Phase N` (or `P N`, `phase3`...) is the image of phase N.
-- **Ultimate**: only phase images are used. When the current phase has no image yet, the
-  default image is shown, so the number of phases of a new ultimate is never spoiled: add each
-  phase image when you reach it.
-- **Raid**: the current phase's image if there is one (last Arcadion boss), otherwise any other
-  image of the folder (the boss image), otherwise the default image.
-- **Default**: `default.jpg` / `default.png` at the root of the images folder replaces the
-  bundled kitten.
-- **Folder names**: "CODE - FFLogs name". The English name after " - " identifies the fight:
-  keep it. The code and numbers in front are only there for sorting. If a fight has no folder
-  (content released after this version, different FFLogs name), the program creates one in
-  `4 - Other Content` the first time it is tracked.
+- **Ultimate**: `phase-<n>` of the current phase, otherwise the default image. The number of
+  phases of a new ultimate is never spoiled: add each phase image when you reach it.
+- **Raid**: `phase-<n>` of the current phase if there is one (last Arcadion boss), otherwise the
+  fight image, otherwise the default image.
+- **Missing folder**: a fight without a folder (content released after this version) gets one in
+  `4_other-content/<zone>/<fight>` the first time it is tracked.
 - **Recommended size**: 850 × 450 or larger with the same ratio (center-cropped otherwise).
 - **Bundled images**: images placed in the repository's `images/` folder are built into the
   executable and are used when you have none for that fight.

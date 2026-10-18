@@ -449,7 +449,7 @@ def selftest():
         assert (BUNDLE / template).read_text(encoding="utf-8")
     folders = DATA / "selftest-images"
     create_folders(folders)
-    assert (folders / "1 - Ultimates" / "6. FRU - Futures Rewritten").is_dir()
+    assert (folders / "1_ultimates" / "6_fru_futures-rewritten").is_dir()
     image, path = load_background("Selftest", "Selftest", None, False, folders, BUNDLED_IMAGES)
     assert path and path.stem == "default", path
     zone = {"id": 0, "name": "Selftest", "encounters": [{"id": 0, "name": "Boss"}]}
