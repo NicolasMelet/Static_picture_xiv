@@ -12,15 +12,14 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 WIDTH, HEIGHT = 850, 450
 MARGIN = 40
-TITLE_SIZE, BIG_SIZE, SMALL_SIZE = 38, 68, 22
-PHASE_SIZE = BIG_SIZE * 2 // 3      # "Phase X": two thirds of the best %
-PULLS_SIZE = BIG_SIZE // 2          # "N pulls": half of the best %
+TITLE_SIZE, BIG_SIZE, PULLS_SIZE = 38, 68, 22
+PHASE_SIZE = BIG_SIZE * 2 // 3      # "Phase X" and raid "X/Y": two thirds of the best %
 
 EMPTY_BACKGROUND = (22, 24, 31)
 WHITE = (255, 255, 255)
 YELLOW = (255, 214, 64)
 GREEN = (110, 230, 140)
-GREY = (200, 204, 212)             # every pull counter
+GREY = (165, 170, 180)             # every pull counter
 BLACK = (0, 0, 0)
 
 # Lilita One (SIL Open Font License, see fonts/lilita-one-license.txt), bundled with the program.
@@ -110,8 +109,8 @@ def render(view, out_path, background_image=None):
             lines.insert(0, "Pulls:")
         y = HEIGHT - MARGIN + 4
         for line in reversed(lines):
-            outlined_text(draw, (right, y), line, font(SMALL_SIZE), GREY, anchor="rs")
-            y -= SMALL_SIZE + 6
+            outlined_text(draw, (right, y), line, font(PULLS_SIZE), GREY, anchor="rs")
+            y -= PULLS_SIZE + 6
     else:
         outlined_text(draw, (right, HEIGHT - MARGIN + 4), f"{view['done']}/{view['total']}",
                       font(PHASE_SIZE), GREEN if cleared else WHITE, anchor="rs")
