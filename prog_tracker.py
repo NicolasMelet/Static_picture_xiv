@@ -275,10 +275,9 @@ class Tracker:
         view = compute(zone, loaded, cfg.get("difficulty"))
 
         for fight in view["fights"]:
-            names = [p["name"] for p in fight["phases"] if not p.get("isIntermission")]
-            ensure_fight_folder(USER_IMAGES, zone["name"], fight["name"], names)
+            ensure_fight_folder(USER_IMAGES, zone["name"], fight["name"])
         image, path = load_background(view["title"], zone["name"], view["phase"],
-                                      USER_IMAGES, BUNDLED_IMAGES)
+                                      view["mode"] == "ultimate", USER_IMAGES, BUNDLED_IMAGES)
         log.info("Background: %s", path)
         render(view, OUTPUT, image)
 
@@ -322,6 +321,8 @@ class Tracker:
                 running = any_process_running(names)
                 due = running and time.monotonic() - last_update >= interval
                 closed = was_running and not running
+                if running and not was_running:
+                    log.info("Archon/ACT detected: FFLogs checked every %d s", interval)
                 if force or due or closed:
                     if closed:
                         log.info("Archon/ACT closed: last check")
@@ -448,8 +449,8 @@ def selftest():
         assert (BUNDLE / template).read_text(encoding="utf-8")
     folders = DATA / "selftest-images"
     create_folders(folders)
-    assert (folders / "1 - Ultimates" / "6. FRU - Futures Rewritten" / "Phase 5 - Pandora").is_dir()
-    image, path = load_background("Selftest", "Selftest", None, folders, BUNDLED_IMAGES)
+    assert (folders / "1 - Ultimates" / "6. FRU - Futures Rewritten").is_dir()
+    image, path = load_background("Selftest", "Selftest", None, False, folders, BUNDLED_IMAGES)
     assert path and path.stem == "default", path
     zone = {"id": 0, "name": "Selftest", "encounters": [{"id": 0, "name": "Boss"}]}
     pull = {"encounterID": 0, "kill": False, "fightPercentage": 42.0, "lastPhase": 1}

@@ -91,53 +91,67 @@ the log file `prog_tracker.log`.
 
 Manual test (renders and publishes once): `ProgFFLogs.exe --once`.
 
+### Logs and testing
+
+The log is `%APPDATA%\ProgFFLogs\prog_tracker.log` (icon menu → **Open settings folder**). Open
+it with Notepad and reopen it to see new lines.
+
+- **Archon sync**: start Archon (or ACT). Within 30 s the log shows
+  `Archon/ACT detected: FFLogs checked every 300 s`, then every 5 minutes either
+  `No new log (N reports)` or `N reports (M new/updated)`. Close Archon: `Archon/ACT closed: last
+  check` appears within 30 s, and no more FFLogs lines after that.
+- **Progression update**: upload a log with Archon on the tracked content (or pick a content that
+  already has logs in the **Content** menu, which updates at once). The log then shows
+  `N reports (1 new/updated)`, `Background: ...` and `Image published: ...` (or
+  `Publication postponed by ... s` if an image was published less than 10 minutes ago). Check the
+  result with **Open local image** and, after a minute, **Open online image**.
+
 ### Background images
 
 No image is downloaded from FFLogs: the backgrounds are your own images, stored in
-`%APPDATA%\ProgFFLogs\images` (icon menu → **Open images folder**). The whole folder tree is created when the program starts; it is also visible in the
-repository's [`images/`](images) folder.
+`%APPDATA%\ProgFFLogs\images` (icon menu → **Open images folder**), one folder per fight. The
+folders are created when the program starts; they are also visible in the repository's
+[`images/`](images) folder.
 
 ```
 images/
-  default.jpg                                   content without an image (the kitten)
-  README.txt                                    reminder of the rules below
+  default.jpg                       used when no image fits (the kitten)
+  README.txt                        reminder of the rules below
   1 - Ultimates/
-    1. UCOB - The Unending Coil of Bahamut/
-      Phase 1 - Twintania/ ... Phase 5 - Golden Bahamut/
-    2. UWU ... 7. DMU - Dancing Mad/            one folder per ultimate, one per phase
+    6. FRU - Futures Rewritten/     one folder per ultimate
+      Phase 1.png
+      Phase 2.png                   add each phase image when you reach it
   2 - Savage Raids/
-    2 - Heavensward/ ... 6 - Dawntrail/         expansion
-      3 - AAC Heavyweight/                      tier
-        M9S - Vamp Fatale/                      one folder per boss
-        M12S - Lindwurm/
-          Phase 1/  Phase 2/                    last Arcadion boss: two phases
+    6 - Dawntrail/3 - AAC Heavyweight/
+      M9S - Vamp Fatale/
+        vamp.png                    image of the boss (any name)
+      M12S - Lindwurm/
+        lindwurm.png
+        Phase 2.png                 optional: image of phase 2 only
   3 - Extremes/
-    1 - A Realm Reborn/ ... 6 - Dawntrail/
-      EX1 - Valigarmanda/                       one folder per extreme trial
-  4 - Other Content/                            fights missing from the catalog (automatic)
+    6 - Dawntrail/EX1 - Valigarmanda/
+  4 - Other Content/                fights missing from the catalog (created automatically)
 ```
 
-Drop an image (any name, `.png`, `.jpg`, `.jpeg`, `.webp`) into the fight's or phase's folder.
-The program uses the most specific one available:
-**phase → fight → tier / expansion / category → default**. A single image in an ultimate's
-folder is therefore enough for all of its phases, and an image in a tier folder is used for all
-of its bosses.
+Rules (`.png`, `.jpg`, `.jpeg` or `.webp`):
 
-- **Naming**: a fight folder is named "CODE - FFLogs name". The English name after " - "
-  identifies the fight: keep it. The code and numbers in front are only there for sorting. A
-  phase folder starts with `Phase N` (or `PN`); the rest is free.
-- **Unknown fight**: if a fight has no folder (content released after this version, different
-  FFLogs name), the program creates one in `4 - Other Content` the first time it is tracked.
-- **Additions**: you can create other folders or phases, they are picked up. Existing folders are
-  never deleted or renamed.
+- **Phase image**: a file named `Phase N` (or `P N`, `phase3`...) is the image of phase N.
+- **Ultimate**: only phase images are used. When the current phase has no image yet, the
+  default image is shown, so the number of phases of a new ultimate is never spoiled: add each
+  phase image when you reach it.
+- **Raid**: the current phase's image if there is one (last Arcadion boss), otherwise any other
+  image of the folder (the boss image), otherwise the default image.
+- **Default**: `default.jpg` / `default.png` at the root of the images folder replaces the
+  bundled kitten.
+- **Folder names**: "CODE - FFLogs name". The English name after " - " identifies the fight:
+  keep it. The code and numbers in front are only there for sorting. If a fight has no folder
+  (content released after this version, different FFLogs name), the program creates one in
+  `4 - Other Content` the first time it is tracked.
 - **Recommended size**: 850 × 450 or larger with the same ratio (center-cropped otherwise).
 - **Bundled images**: images placed in the repository's `images/` folder are built into the
   executable and are used when you have none for that fight.
 
-Fight and phase names come from the game and FFLogs; some of them (especially ultimate phases and
-older tiers) could not be checked against FFLogs. If an image is not picked up, the log shows the
-background used ("Background: ..."): rename the folder after the fight name as shown by
-**Find IDs**.
+If an image is not picked up, the log shows the background used ("Background: ...").
 
 **Legacy ultimates and extremes**: FFLogs groups several fights in a single zone. In the
 **Content** menu, these zones open a sub-menu to choose the tracked fight
