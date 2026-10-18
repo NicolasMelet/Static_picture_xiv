@@ -12,7 +12,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 WIDTH, HEIGHT = 850, 450
 MARGIN = 40
-TITLE_SIZE, BIG_SIZE, PULLS_SIZE = 38, 68, 22
+TITLE_SIZE, BIG_SIZE, PULLS_SIZE = 38, 68, 30
+LINE_GAP = 4                        # space between best %, "Phase X" and "N pulls"
 PHASE_SIZE = BIG_SIZE * 2 // 3      # "Phase X" and raid "X/Y": two thirds of the best %
 
 EMPTY_BACKGROUND = (22, 24, 31)
@@ -89,10 +90,10 @@ def render(view, out_path, background_image=None):
     pulls = view["pulls"]
     outlined_text(draw, (MARGIN, y), f"{pulls} pull{'s' if pulls != 1 else ''}",
                   font(PULLS_SIZE), GREY, anchor="ls")
-    y -= PULLS_SIZE + 12
+    y -= PULLS_SIZE + LINE_GAP
     if view["mode"] == "ultimate" and not cleared:      # raids never show their phase
         outlined_text(draw, (MARGIN, y), f"Phase {view['phase']}", font(PHASE_SIZE), anchor="ls")
-        y -= PHASE_SIZE + 10
+        y -= PHASE_SIZE + LINE_GAP
     if cleared:
         big_text, color = "CLEAR", GREEN
     elif view["best_pct"] is not None:
