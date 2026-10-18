@@ -33,7 +33,8 @@ jobs:
 
       - name: Build the executable
         run: >
-          pyinstaller --noconfirm --onefile --windowed --name ProgFFLogs
+          pyinstaller --noconfirm --onefile --windowed --name ProgFFLogs --icon icon.ico
+          --add-data "icon.ico;."
           --add-data "config.example.json;."
           --add-data ".env.example;."
           --add-data "images;images"

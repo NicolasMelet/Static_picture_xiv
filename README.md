@@ -120,7 +120,7 @@ with `-`, and `_` separates the prefixes (order number, raid code) from the name
 |---|---|---|
 | Category / expansion / tier | `<order>_<name>` | `2_savage-raids/6_dawntrail/3_aac-heavyweight` |
 | Fight | `<order or code>_<fflogs-name>` | `6_fru_futures-rewritten`, `m12s_lindwurm`, `p4s-1_hesperos` |
-| Phase image | `phase-<n>.<ext>` | `phase-3.png` |
+| Phase image | `<anything>-p<n>.<ext>` | `fru-p3.png`, `lindwurm-p2.jpg` |
 | Fight image | any other name | `lindwurm.png` |
 | Default image | `default.<ext>` at the root | `default.jpg` |
 
@@ -133,15 +133,15 @@ images/
   readme.txt                           reminder of these rules
   1_ultimates/
     6_fru_futures-rewritten/
-      phase-1.png
-      phase-2.png                      add each phase image when you reach it
+      fatebreaker-p1.png
+      usurper-p2.png                   add each phase image when you reach it
   2_savage-raids/
     6_dawntrail/3_aac-heavyweight/
       m9s_vamp-fatale/
         vamp-fatale.png                image of the boss
       m12s_lindwurm/
-        lindwurm.png
-        phase-2.png                    optional: image of phase 2 only
+        lindwurm-p1.png                last savage boss: one image per phase
+        lindwurm-p2.png
   3_extremes/
     6_dawntrail/ex1_valigarmanda/
   4_other-content/                     fights missing from the catalog (created automatically)
@@ -149,10 +149,10 @@ images/
 
 Which image is used:
 
-- **Ultimate**: `phase-<n>` of the current phase, otherwise the default image. The number of
+- **Ultimate**: the `-p<n>` image of the current phase, otherwise the default image. The number of
   phases of a new ultimate is never spoiled: add each phase image when you reach it.
-- **Raid**: `phase-<n>` of the current phase if there is one (last Arcadion boss), otherwise the
-  fight image, otherwise the default image.
+- **Raid**: the `-p<n>` image of the current phase if there is one (last savage boss: `-p1` and
+  `-p2`), otherwise the fight image, otherwise the default image.
 - **Missing folder**: a fight without a folder (content released after this version) gets one in
   `4_other-content/<zone>/<fight>` the first time it is tracked.
 - **Recommended size**: 850 × 450 or larger with the same ratio (center-cropped otherwise).

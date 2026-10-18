@@ -402,8 +402,7 @@ def run_tray(tracker):
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", quit_app),
     )
-    icon = pystray.Icon("fflogs_prog", Image.new("RGB", (64, 64), (225, 140, 60)),
-                        "Prog FFLogs", menu)
+    icon = pystray.Icon("fflogs_prog", Image.open(BUNDLE / "icon.ico"), "Prog FFLogs", menu)
     threading.Thread(target=tracker.loop, daemon=True).start()
     icon.run()
 
@@ -447,6 +446,8 @@ def selftest():
     import pystray  # noqa: F401  (the tray library must be bundled)
     for template in (".env.example", "config.example.json"):
         assert (BUNDLE / template).read_text(encoding="utf-8")
+    from PIL import Image
+    assert Image.open(BUNDLE / "icon.ico").size[0] > 0
     folders = DATA / "selftest-images"
     create_folders(folders)
     assert (folders / "1_ultimates" / "6_fru_futures-rewritten").is_dir()

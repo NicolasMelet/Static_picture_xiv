@@ -9,15 +9,15 @@ prog fflogs - background images
 Naming convention: lowercase, no spaces, words joined with "-", "_" before the name.
   - folder:  <order or code>_<fflogs-name>     e.g. 6_fru_futures-rewritten, m12s_lindwurm
              the part after the last "_" is the fight's FFLogs name: keep it
-  - files:   phase-<n>.<ext>                   image of phase n, e.g. phase-3.png
+  - files:   <anything>-p<n>.<ext>             image of phase n, e.g. fru-p3.png
              any other name                    image of the fight, e.g. lindwurm.png
   - extensions: .png, .jpg, .jpeg, .webp
 
 Which image is used:
-  - ultimate: phase-<n> of the current phase, otherwise default.jpg
+  - ultimate: the -p<n> image of the current phase, otherwise default.jpg
     (add the phase images one by one as you reach them: no spoiler)
-  - raid:     phase-<n> of the current phase if any (e.g. m12s phase 2), otherwise the fight
-    image, otherwise default.jpg
+  - raid:     the -p<n> image of the current phase if any (last savage boss: -p1 and -p2),
+    otherwise the fight image, otherwise default.jpg
   - default.jpg / default.png here, at the root, replaces the bundled kitten
 
 Recommended size: 850 x 450 (or larger with the same ratio); otherwise it is center-cropped.

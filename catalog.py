@@ -4,7 +4,7 @@ Naming convention (folders and files): lowercase, no spaces, no accents.
   - words are joined with "-":           futures-rewritten, aac-heavyweight
   - "_" separates prefixes from the name: <order>_<name> or <code>_<name>
   - the part after the last "_" is the fight's FFLogs name: it identifies the folder
-  - phase images are files named phase-<n>: phase-1.png, phase-2.jpg
+  - phase images are files named <anything>-p<n>: fru-p1.png, lindwurm-p2.jpg
 """
 
 ULTIMATES = "1_ultimates"
