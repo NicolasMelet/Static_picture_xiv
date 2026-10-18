@@ -1,30 +1,24 @@
 {
-  "team_name": "Wipe Lotus",
   "zone_id": 73,
+  "encounter_id": null,
   "difficulty": 101,
   "autostart": true,
-  "ultimate_pulls": "cumulative",
-  "encounter_id": null,
-
   "fflogs": {
     "static_id": 141085,
-    "static_name": "Wipe Lotus",
-    "guild_name": "FREE_COMPANY_NAME",
-    "server": "server-name",
-    "region": "EU",
     "raid_team_id": null
   },
-
   "github": {
     "repo": "NicolasMelet/Static_picture_xiv",
     "branch": "gh-pages",
     "path": "prog.png",
     "min_publish_seconds": 600
   },
-
   "poll": {
     "active_seconds": 300,
     "process_check_seconds": 30,
-    "process_names": ["Archon.exe", "Advanced Combat Tool.exe"]
+    "process_names": [
+      "Archon.exe",
+      "Advanced Combat Tool.exe"
+    ]
   }
 }

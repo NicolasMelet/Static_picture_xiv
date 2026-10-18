@@ -1,35 +1,30 @@
-"""Génération de l'image de progression (PNG, 850 × 450, même format que les images de fond).
+"""Draws the progression image (PNG, 850 x 450, the size of the background images).
 
-En haut à gauche : nom du boss ou de l'ultime.
-En bas à gauche  : meilleur % (en gros), la phase en cours s'il y en a une, puis « N pulls ».
-En bas à droite  : raid -> X/Y en gros ; ultime -> « Pulls: » puis le pull auquel chaque phase a
-                   été passée pour la première fois (P1: 156, P2: 824...).
+Top left:     fight name.
+Bottom left:  best % (large), current phase if any, then "N pulls".
+Bottom right: raid -> X/Y (large); ultimate -> "Pulls:" and the pull on which each phase
+              was first cleared (P1: 156, P2: 824...).
 """
-import os
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-W, H = 850, 450
-PAD = 26
+WIDTH, HEIGHT = 850, 450
+MARGIN = 26
+TITLE_SIZE, BIG_SIZE, PHASE_SIZE, SMALL_SIZE = 38, 68, 32, 22
 
-# Tailles de police (px)
-TITLE, BIG, PHASE, SMALL, LINES = 38, 68, 32, 22, 22
-BG = (22, 24, 31)
-TEXT = (255, 255, 255)
-ACCENT = (255, 214, 64)          # meilleur %
-KILL = (110, 230, 140)
-OUTLINE = (0, 0, 0)
+EMPTY_BACKGROUND = (22, 24, 31)
+WHITE = (255, 255, 255)
+YELLOW = (255, 214, 64)
+GREEN = (110, 230, 140)
+BLACK = (0, 0, 0)
 
-_FONT_CANDIDATES = {
-    True: ["C:/Windows/Fonts/segoeuib.ttf", "DejaVuSans-Bold.ttf",
-           "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"],
-    False: ["C:/Windows/Fonts/segoeui.ttf", "DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"],
-}
+FONT_FILES = ["C:/Windows/Fonts/segoeuib.ttf", "DejaVuSans-Bold.ttf",
+              "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
 
 
-def font(size, bold=True):
-    for path in _FONT_CANDIDATES[bold]:
+def font(size):
+    for path in FONT_FILES:
         try:
             return ImageFont.truetype(path, size)
         except OSError:
@@ -37,86 +32,84 @@ def font(size, bold=True):
     return ImageFont.load_default(size)
 
 
-def fit_font(draw, text, size, max_w, bold=True, min_size=20):
-    """Réduit la taille de police jusqu'à ce que le texte tienne."""
-    while size > min_size and draw.textlength(text, font=font(size, bold)) > max_w:
+def fitting_font(draw, text, size, max_width, min_size=20):
+    """Largest font size (down from `size`) for which the text fits in max_width."""
+    while size > min_size and draw.textlength(text, font=font(size)) > max_width:
         size -= 2
-    return font(size, bold)
+    return font(size)
 
 
-def cover(img, w, h):
-    """Redimensionne et recadre l'image pour remplir w×h (comme CSS background-size: cover)."""
-    scale = max(w / img.width, h / img.height)
-    resized = img.resize((max(w, round(img.width * scale)), max(h, round(img.height * scale))),
-                         Image.LANCZOS)
-    left, top = (resized.width - w) // 2, (resized.height - h) // 2
-    out = resized.crop((left, top, left + w, top + h))
-    if scale > 2.5:          # image trop petite : flou pour masquer les pixels
-        out = out.filter(ImageFilter.GaussianBlur(radius=min(12, scale * 1.5)))
-    return out
+def cover(image, width, height):
+    """Scale and center-crop the image to fill width x height (like CSS background-size: cover)."""
+    scale = max(width / image.width, height / image.height)
+    size = (max(width, round(image.width * scale)), max(height, round(image.height * scale)))
+    resized = image.resize(size, Image.LANCZOS)
+    left, top = (resized.width - width) // 2, (resized.height - height) // 2
+    cropped = resized.crop((left, top, left + width, top + height))
+    if scale > 2.5:          # very small source image: blur to hide the pixels
+        cropped = cropped.filter(ImageFilter.GaussianBlur(radius=min(12, scale * 1.5)))
+    return cropped
 
 
-def background(img):
-    base = cover(img, W, H) if img else Image.new("RGB", (W, H), BG)
-    base = base.convert("RGBA")
-    # Assombrit légèrement le haut (titre) et davantage le bas (chiffres), le centre reste net.
-    shade = Image.new("RGBA", (W, H))
-    d = ImageDraw.Draw(shade)
-    for y in range(H):
-        t = y / H
-        top = max(0.0, 1 - t / 0.30)            # 1 en haut -> 0 à 30 %
-        bottom = max(0.0, (t - 0.45) / 0.55)    # 0 à 45 % -> 1 en bas
-        d.line([(0, y), (W, y)], fill=(0, 0, 0, int(25 + 110 * top + 170 * bottom ** 1.3)))
-    return Image.alpha_composite(base, shade)
+def background(image):
+    """Background image, slightly darkened at the top (title) and more at the bottom (numbers)."""
+    base = cover(image, WIDTH, HEIGHT) if image else Image.new("RGB", (WIDTH, HEIGHT),
+                                                               EMPTY_BACKGROUND)
+    shade = Image.new("RGBA", (WIDTH, HEIGHT))
+    draw = ImageDraw.Draw(shade)
+    for y in range(HEIGHT):
+        t = y / HEIGHT
+        top = max(0.0, 1 - t / 0.30)            # 1 at the top -> 0 at 30 %
+        bottom = max(0.0, (t - 0.45) / 0.55)    # 0 at 45 % -> 1 at the bottom
+        draw.line([(0, y), (WIDTH, y)], fill=(0, 0, 0, int(25 + 110 * top + 170 * bottom ** 1.3)))
+    return Image.alpha_composite(base.convert("RGBA"), shade)
 
 
-def text(d, xy, value, fnt, fill=TEXT, anchor="la"):
-    d.text(xy, value, font=fnt, fill=fill, anchor=anchor,
-           stroke_width=max(2, fnt.size // 16), stroke_fill=OUTLINE)
+def outlined_text(draw, xy, text, text_font, color=WHITE, anchor="la"):
+    draw.text(xy, text, font=text_font, fill=color, anchor=anchor,
+              stroke_width=max(2, text_font.size // 16), stroke_fill=BLACK)
 
 
-def render(view, team_name, out_path, bg_image=None):
-    """team_name n'est plus affiché ; le paramètre est gardé pour compatibilité."""
-    img = background(bg_image)
-    d = ImageDraw.Draw(img)
+def render(view, out_path, background_image=None):
+    image = background(background_image)
+    draw = ImageDraw.Draw(image)
     cleared = view["cleared"]
 
-    # En haut à gauche : nom du boss / de l'ultime.
-    text(d, (PAD, PAD - 4), view["title"], fit_font(d, view["title"], TITLE, W - 2 * PAD))
+    # Top left: fight name.
+    outlined_text(draw, (MARGIN, MARGIN - 4), view["title"],
+                  fitting_font(draw, view["title"], TITLE_SIZE, WIDTH - 2 * MARGIN))
 
-    # En bas à gauche, de bas en haut : « N pulls », phase en cours, meilleur %.
-    y = H - PAD + 4
-    pulls = view.get("pulls", 0)
-    text(d, (PAD, y), f"{pulls} pull{'s' if pulls != 1 else ''}", font(SMALL), TEXT, anchor="ls")
-    y -= SMALL + 12
-    phase_label = view["progress_label"] if view["mode"] == "phases" else \
-        (f"Phase {view['phase']}" if view.get("phase") else None)
-    if phase_label and not cleared:
-        text(d, (PAD, y), phase_label, font(PHASE), TEXT, anchor="ls")
-        y -= PHASE + 10
+    # Bottom left, from the bottom up: pulls, current phase, best %.
+    y = HEIGHT - MARGIN + 4
+    pulls = view["pulls"]
+    outlined_text(draw, (MARGIN, y), f"{pulls} pull{'s' if pulls != 1 else ''}",
+                  font(SMALL_SIZE), anchor="ls")
+    y -= SMALL_SIZE + 12
+    if view["phase"] and not cleared:
+        outlined_text(draw, (MARGIN, y), f"Phase {view['phase']}", font(PHASE_SIZE), anchor="ls")
+        y -= PHASE_SIZE + 10
     if cleared:
-        big, color = "CLEAR", KILL
+        big_text, color = "CLEAR", GREEN
     elif view["best_pct"] is not None:
-        big, color = f"{view['best_pct']:.1f}%", ACCENT
+        big_text, color = f"{view['best_pct']:.1f}%", YELLOW
     else:
-        big, color = "—", TEXT
-    text(d, (PAD, y), big, font(BIG), color, anchor="ls")
+        big_text, color = "—", WHITE
+    outlined_text(draw, (MARGIN, y), big_text, font(BIG_SIZE), color, anchor="ls")
 
-    # En bas à droite.
-    right = W - PAD
-    if view["mode"] == "phases":
-        lines = view["pulls_lines"]
-        size = LINES if len(lines) <= 6 else LINES - 2
-        y = H - PAD + 4
-        for line in reversed(lines):
-            text(d, (right, y), line, font(size), TEXT, anchor="rs")
-            y -= size + 6
+    # Bottom right.
+    right = WIDTH - MARGIN
+    if view["mode"] == "ultimate":
+        lines = [f"P{phase}: {pull}" for phase, pull in view["phase_clears"]]
         if lines:
-            text(d, (right, y), "Pulls:", font(size), TEXT, anchor="rs")
+            lines.insert(0, "Pulls:")
+        y = HEIGHT - MARGIN + 4
+        for line in reversed(lines):
+            outlined_text(draw, (right, y), line, font(SMALL_SIZE), anchor="rs")
+            y -= SMALL_SIZE + 6
     else:
-        text(d, (right, H - PAD + 6), view["progress_label"], font(BIG),
-             KILL if cleared else TEXT, anchor="rs")
+        outlined_text(draw, (right, HEIGHT - MARGIN + 6), f"{view['done']}/{view['total']}",
+                      font(BIG_SIZE), GREEN if cleared else WHITE, anchor="rs")
 
-    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
-    img.convert("RGB").save(out_path, "PNG", optimize=True)
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    image.convert("RGB").save(out_path, "PNG", optimize=True)
     return out_path

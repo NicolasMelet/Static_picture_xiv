@@ -1,11 +1,11 @@
-"""Images de fond rangées par dossiers : aucune image n'est téléchargée depuis FFLogs.
+"""Background images, stored locally in folders: nothing is downloaded from FFLogs.
 
-Le dossier d'un combat est retrouvé par son nom FFLogs (« M12S - Lindwurm » pour Lindwurm),
-où qu'il soit rangé. L'image utilisée est la plus précise disponible :
-  dossier de la phase en cours → dossier du combat → dossiers parents (palier, extension,
-  catégorie) → default.jpg / default.png à la racine.
-Dans un dossier, n'importe quel nom de fichier convient (.png, .jpg, .jpeg, .webp) ; s'il y en a
-plusieurs, le premier par ordre alphabétique est utilisé.
+A fight's folder is found by its FFLogs name ("M12S - Lindwurm" for Lindwurm), wherever it is.
+The most specific image wins:
+  current phase folder -> fight folder -> parent folders (tier, expansion, category)
+  -> default.jpg / default.png at the root.
+Any file name works (.png, .jpg, .jpeg, .webp); with several images in a folder, the first one
+in alphabetical order is used.
 """
 import logging
 import re
@@ -18,122 +18,10 @@ import catalog
 
 log = logging.getLogger("prog")
 EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
-README_NAME = "README.txt"
-OLD_README_NAME = "LISEZ-MOI.txt"          # v1.1.0
-# « Phase 2 », « Phase 2 - Nidhogg », « P2 » ; mais pas « P4S - Hesperos » (code de raid).
-PHASE_RX = re.compile(r"^(phase|p)\s*0*(\d+)(?![0-9a-z])", re.IGNORECASE)
-CODE_RX = re.compile(r"^[^-]{1,14}?\s-\s")       # « M1S - », « P4S (1) - », « EX3 - »
-
-
-def folder_name(name):
-    """Nom de dossier valide sous Windows."""
-    name = re.sub(r'[<>:"/\\|?*]', "-", name).strip().rstrip(".")
-    return name or "Unnamed"
-
-
-def normalize(text):
-    text = text.replace("æ", "ae").replace("Æ", "AE").replace("&", " and ")
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
-    text = re.sub(r"[^a-z0-9]+", " ", text).strip()
-    return re.sub(r"^the ", "", text)
-
-
-def _fight_key(directory_name):
-    return normalize(CODE_RX.sub("", directory_name, count=1))
-
-
-def _images_in(directory):
-    if not directory or not directory.is_dir():
-        return []
-    return sorted(p for p in directory.iterdir()
-                  if p.is_file() and p.suffix.lower() in EXTENSIONS)
-
-
-def category_of(zone_name):
-    """Catégorie du catalogue d'après le nom de la zone FFLogs."""
-    z = zone_name.lower()
-    if "ultimate" in z:
-        return catalog.ULTIMATES
-    if "savage" in z:
-        return catalog.SAVAGE
-    if "extreme" in z or "trial" in z:
-        return catalog.EXTREME
-    return None
-
-
-def find_fight_dir(base, fight_name, category=None):
-    """Dossier du combat : nom identique en priorité, puis nom contenu ; la catégorie départage."""
-    base = Path(base)
-    if not base.is_dir():
-        return None
-    wanted = normalize(fight_name)
-    if not wanted:
-        return None
-    best = None
-    for d in base.rglob("*"):
-        if not d.is_dir() or PHASE_RX.match(d.name):
-            continue
-        key = _fight_key(d.name)
-        if key == wanted:
-            score = 0
-        elif len(wanted) >= 4 and re.search(rf"\b{re.escape(wanted)}\b", key):
-            score = 2
-        else:
-            continue
-        rel = d.relative_to(base).parts
-        if category and rel[0] != category:
-            score += 10                          # la bonne catégorie passe avant tout
-        if any(c.is_dir() and not PHASE_RX.match(c.name) for c in d.iterdir()):
-            score += 1                           # dossier de palier (contient des combats)
-        candidate = (score, len(d.name), str(d))
-        if best is None or candidate < best[0]:
-            best = (candidate, d)
-    return best[1] if best else None
-
-
-def _phase_dir(directory, phase):
-    if not phase or not directory or not directory.is_dir():
-        return None
-    for d in sorted(directory.iterdir()):
-        m = PHASE_RX.match(d.name)
-        if d.is_dir() and m and int(m.group(2)) == phase:
-            return d
-    return None
-
-
-def background_path(fight_name, zone_name, phase, user_dir, bundled_dir):
-    category = category_of(zone_name or "")
-    for base in (Path(user_dir), Path(bundled_dir)):
-        fight_dir = find_fight_dir(base, fight_name, category)
-        if not fight_dir:
-            continue
-        candidates = [_phase_dir(fight_dir, phase), fight_dir]
-        parent = fight_dir.parent
-        while parent != base and base in parent.parents:
-            candidates.append(parent)
-            parent = parent.parent
-        for directory in candidates:
-            found = _images_in(directory)
-            if found:
-                return found[0]
-    for base in (Path(user_dir), Path(bundled_dir)):
-        found = [p for p in _images_in(base) if p.stem.lower() == "default"]
-        if found:
-            return found[0]
-    return None
-
-
-def load_background(fight_name, zone_name, phase, user_dir, bundled_dir):
-    path = background_path(fight_name, zone_name, phase, user_dir, bundled_dir)
-    if path:
-        try:
-            return Image.open(path).convert("RGB"), path
-        except Exception as e:
-            log.warning("Unreadable image %s: %s", path, e)
-    return None, None
-
-
-# --- Création de l'arborescence -------------------------------------------------
+# "Phase 2", "Phase 2 - Nidhogg", "P2"; but not "P4S - Hesperos" (a raid code).
+PHASE_PATTERN = re.compile(r"^(phase|p)\s*0*(\d+)(?![0-9a-z])", re.IGNORECASE)
+# Sorting/display code in front of a fight name: "M1S - ", "P4S (1) - ", "EX3 - ", "6. FRU - ".
+CODE_PATTERN = re.compile(r"^[^-]{1,14}?\s-\s")
 
 README_TEXT = """Prog FFLogs - background images
 ==============================
@@ -164,43 +52,131 @@ Recommended size: 850 x 450 (or larger with the same ratio); otherwise it is cen
 """
 
 
-def migrate(base):
-    """Renomme les dossiers français de la v1.1.0 (images déjà rangées comprises)."""
-    base = Path(base)
-    if not base.is_dir():
-        return
-    for d in sorted(base.rglob("*"), key=lambda p: -len(p.parts)):   # les plus profonds d'abord
-        new = catalog.RENAMED.get(d.name)
-        if d.is_dir() and new and not (d.parent / new).exists():
-            d.rename(d.parent / new)
-    old_readme = base / OLD_README_NAME
-    if old_readme.is_file():
-        old_readme.unlink()
+def folder_name(name):
+    """Folder name that is valid on Windows."""
+    name = re.sub(r'[<>:"/\\|?*]', "-", name).strip().rstrip(".")
+    return name or "Unnamed"
 
 
-def create_skeleton(base):
-    """Crée les dossiers du catalogue et le README.txt (n'efface ni ne renomme rien d'autre que
-    les anciens noms français de la v1.1.0)."""
-    base = Path(base)
-    migrate(base)
-    for rel in catalog.folders():
-        (base / Path(*[folder_name(part) for part in rel.split("/")])).mkdir(
+def normalize(text):
+    """Comparable form of a name: lowercase ASCII words, no leading "the"."""
+    text = text.replace("æ", "ae").replace("Æ", "AE").replace("&", " and ")
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
+    text = re.sub(r"[^a-z0-9]+", " ", text).strip()
+    return re.sub(r"^the ", "", text)
+
+
+def category_of(zone_name):
+    """Catalog category matching an FFLogs zone name."""
+    zone_name = zone_name.lower()
+    if "ultimate" in zone_name:
+        return catalog.ULTIMATES
+    if "savage" in zone_name:
+        return catalog.SAVAGE
+    if "extreme" in zone_name or "trial" in zone_name:
+        return catalog.EXTREMES
+    return None
+
+
+def images_in(folder):
+    if not folder or not folder.is_dir():
+        return []
+    return sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in EXTENSIONS)
+
+
+def is_phase_folder(folder):
+    return bool(PHASE_PATTERN.match(folder.name))
+
+
+def find_fight_folder(root, fight_name, category=None):
+    """Folder of a fight. Ranking: same name before name contained in the folder name, right
+    category first, fight folders before tier folders, then the shortest name."""
+    root = Path(root)
+    wanted = normalize(fight_name)
+    if not root.is_dir() or not wanted:
+        return None
+    best = None
+    for folder in root.rglob("*"):
+        if not folder.is_dir() or is_phase_folder(folder):
+            continue
+        key = normalize(CODE_PATTERN.sub("", folder.name, count=1))
+        if key == wanted:
+            score = 0
+        elif len(wanted) >= 4 and re.search(rf"\b{re.escape(wanted)}\b", key):
+            score = 2
+        else:
+            continue
+        if category and folder.relative_to(root).parts[0] != category:
+            score += 10
+        if any(child.is_dir() and not is_phase_folder(child) for child in folder.iterdir()):
+            score += 1                           # a tier folder (it contains fights)
+        candidate = (score, len(folder.name), str(folder))
+        if best is None or candidate < best[0]:
+            best = (candidate, folder)
+    return best[1] if best else None
+
+
+def phase_folder(fight_folder, phase):
+    if not phase or not fight_folder:
+        return None
+    for folder in sorted(fight_folder.iterdir()):
+        match = PHASE_PATTERN.match(folder.name)
+        if folder.is_dir() and match and int(match.group(2)) == phase:
+            return folder
+    return None
+
+
+def background_path(fight_name, zone_name, phase, user_root, bundled_root):
+    """Most specific image for the fight and phase: the user's images first, then the bundled
+    ones, then default.*."""
+    category = category_of(zone_name)
+    for root in (Path(user_root), Path(bundled_root)):
+        fight_folder = find_fight_folder(root, fight_name, category)
+        if not fight_folder:
+            continue
+        candidates = [phase_folder(fight_folder, phase), fight_folder]
+        candidates += [p for p in fight_folder.parents if root in p.parents]
+        for folder in candidates:
+            found = images_in(folder)
+            if found:
+                return found[0]
+    for root in (Path(user_root), Path(bundled_root)):
+        found = [p for p in images_in(root) if p.stem.lower() == "default"]
+        if found:
+            return found[0]
+    return None
+
+
+def load_background(fight_name, zone_name, phase, user_root, bundled_root):
+    path = background_path(fight_name, zone_name, phase, user_root, bundled_root)
+    if path:
+        try:
+            return Image.open(path).convert("RGB"), path
+        except Exception as e:
+            log.warning("Unreadable image %s: %s", path, e)
+    return None, None
+
+
+def create_folders(root):
+    """Creates the catalog folders and README.txt; never deletes or renames anything."""
+    root = Path(root)
+    for relative in catalog.folders():
+        (root / Path(*[folder_name(part) for part in relative.split("/")])).mkdir(
             parents=True, exist_ok=True)
-    readme = base / README_NAME
+    readme = root / "README.txt"
     if not readme.exists() or readme.read_text(encoding="utf-8") != README_TEXT:
         readme.write_text(README_TEXT, encoding="utf-8")
-    return base
 
 
-def ensure_fight_dir(base, zone_name, fight_name, phase_names=()):
-    """Si le combat n'a pas encore de dossier, le crée dans « 4 - Autres contenus »."""
-    if find_fight_dir(base, fight_name, category_of(zone_name)):
+def ensure_fight_folder(root, zone_name, fight_name, phase_names=()):
+    """Creates a folder in "4 - Other Content" for a fight that has none yet."""
+    if find_fight_folder(root, fight_name, category_of(zone_name)):
         return None
-    d = Path(base) / catalog.OTHER / folder_name(zone_name) / folder_name(fight_name)
-    d.mkdir(parents=True, exist_ok=True)
+    folder = Path(root) / catalog.OTHER / folder_name(zone_name) / folder_name(fight_name)
+    folder.mkdir(parents=True, exist_ok=True)
     if len(phase_names) >= 2:
-        for i, name in enumerate(phase_names, start=1):
-            label = f"Phase {i}" if re.fullmatch(r"(P|Phase)\s*\d+", name or "", re.I) \
-                else f"Phase {i} - {name}"
-            (d / folder_name(label)).mkdir(exist_ok=True)
-    return d
+        for number, name in enumerate(phase_names, start=1):
+            generic = re.fullmatch(r"(P|Phase)\s*\d+", name or "", re.IGNORECASE)
+            label = f"Phase {number}" if generic else f"Phase {number} - {name}"
+            (folder / folder_name(label)).mkdir(exist_ok=True)
+    return folder

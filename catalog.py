@@ -1,32 +1,15 @@
-"""Arborescence des dossiers d'images : ultimes, raids sadiques et défis extrêmes.
+"""Folder tree of the background images: ultimates, savage raids and extreme trials.
 
-Chaque combat est un dossier « CODE - Nom » (les numéros devant ne servent qu'à l'ordre). Le nom (après « - ») est celui du combat sur FFLogs,
-en anglais : c'est lui qui permet au programme de retrouver le dossier. Le code devant
-(M1S, P4S (1), UCOB...) n'est là que pour la lisibilité.
-Les phases sont des sous-dossiers « Phase N - ... » ; seul « Phase N » compte.
+Every fight is a "CODE - Name" folder. The name after " - " is the fight's English name on FFLogs:
+it is what lets the program find the folder. The code and numbers in front (M1S, P4S (1),
+6. FRU...) only control the display order. Phases are "Phase N - ..." sub-folders; only
+"Phase N" matters.
 """
 
 ULTIMATES = "1 - Ultimates"
 SAVAGE = "2 - Savage Raids"
-EXTREME = "3 - Extremes"
-OTHER = "4 - Other Content"     # créé par le programme pour les combats absents du catalogue
-
-
-# Noms utilisés par la v1.1.0, renommés automatiquement au lancement (voir images.migrate).
-RENAMED = {
-    "2 - Raids sadiques": SAVAGE,
-    "3 - Extrêmes": EXTREME,
-    "4 - Autres contenus": OTHER,
-    "Phase 2 - Brute Justice et Cruise Chaser": "Phase 2 - Brute Justice and Cruise Chaser",
-    "Phase 1 - Adelphel, Grinnaux et Charibert": "Phase 1 - Adelphel, Grinnaux and Charibert",
-    "Phase 6 - Nidhogg et Hraesvelgr": "Phase 7 - Nidhogg and Hraesvelgr",
-    # v1.2.0 : DSR passe de 7 à 8 phases (Dragon-king Thordan = phase 8).
-    "Phase 5 - Alternate Thordan": "Phase 6 - Alternate Thordan",
-    "Phase 6 - Nidhogg and Hraesvelgr": "Phase 7 - Nidhogg and Hraesvelgr",
-    "Phase 7 - Dragon-king Thordan": "Phase 8 - Dragon-king Thordan",
-    "Phase 2 - Omega-M et Omega-F": "Phase 2 - Omega-M and Omega-F",
-    "Phase 4 - Usurper et Oracle": "Phase 4 - Usurper and Oracle",
-}
+EXTREMES = "3 - Extremes"
+OTHER = "4 - Other Content"     # created by the program for fights missing from the catalog
 
 
 def _phases(*names):
@@ -35,7 +18,7 @@ def _phases(*names):
 
 TWO_PHASES = _phases(None, None)
 
-# {catégorie: {sous-dossier: {combat: [phases]}}} ; sous-dossier None = combats à la racine.
+# {category: {sub-folder: {fight: [phases]}}}; sub-folder None = fights directly in the category.
 TREE = {
     ULTIMATES: {None: {
         "1. UCOB - The Unending Coil of Bahamut": _phases(
@@ -103,7 +86,7 @@ TREE = {
             "M9S - Vamp Fatale": [], "M10S - Red Hot and Deep Blue": [],
             "M11S - The Tyrant": [], "M12S - Lindwurm": TWO_PHASES},
     },
-    EXTREME: {
+    EXTREMES: {
         "1 - A Realm Reborn": {n: [] for n in (
             "EX1 - Ifrit", "EX2 - Garuda", "EX3 - Titan", "EX4 - Leviathan", "EX5 - Ramuh",
             "EX6 - Good King Moggle Mog XII", "EX7 - Shiva", "EX8 - Ultima Weapon")},
@@ -128,7 +111,7 @@ TREE = {
 
 
 def folders():
-    """Tous les dossiers à créer, en chemins relatifs (catégorie/sous-dossier/combat/phase)."""
+    """Every folder to create, as relative paths (category/sub-folder/fight/phase)."""
     out = [OTHER]
     for category, groups in TREE.items():
         out.append(category)

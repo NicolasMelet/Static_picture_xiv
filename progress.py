@@ -1,162 +1,130 @@
-"""Calcul de la progression d'un groupe à partir des combats FFLogs.
+"""Turns the FFLogs fights of a zone into what the image shows.
 
-Raid   : X/Y boss vaincus, pulls et meilleur % sur le premier boss pas encore tué.
-Ultime : phase actuelle, pull auquel chaque phase a été passée la première fois, pulls au total,
-         meilleur % sur la phase actuelle.
+Raid:     bosses defeated (X/Y), pulls and best % on the first boss not killed yet.
+Ultimate: current phase, pull on which each phase was first cleared, total pulls,
+          best % in the current phase.
 """
 
 
-def compute(zone, reports, difficulty=None, ultimate_pulls="cumulative", content=None):
+def compute(zone, reports, difficulty=None):
     """
-    zone           : {id, name, encounters: [{id, name}]}
-    reports        : rapports renvoyés par FFLogs.report_fights()
-    difficulty     : filtre (101 = Sadique) appliqué aux raids, ignoré pour les ultimes
-    ultimate_pulls : "cumulative" (Pn = numéro du pull qui a passé la phase n)
-                     ou "per_phase" (Pn = pulls passés dans la phase n)
-    content        : nom du dossier d'images (par défaut le nom de la zone)
+    zone:       {"id", "name", "encounters": [{"id", "name"}]}
+    reports:    reports returned by FFLogs.report_fights()
+    difficulty: raid difficulty filter (101 = Savage); ignored for single-fight zones
     """
-    encs = [{
-        "id": e["id"], "name": e["name"], "pulls": 0, "kills": 0,
-        "best_pct": None, "phases": [], "fights": [],
-    } for e in zone["encounters"]]
-    by_id = {e["id"]: e for e in encs}
-    single = len(encs) == 1
+    fights = [{"id": e["id"], "name": e["name"], "pulls": [], "phases": []}
+              for e in zone["encounters"]]
+    by_id = {f["id"]: f for f in fights}
+    single = len(fights) == 1
 
-    # Pulls dans l'ordre chronologique (début du rapport + début du combat).
-    for rep in sorted(reports, key=lambda r: r.get("startTime") or 0):
-        for ph in rep.get("phases") or []:
-            enc = by_id.get(ph["encounterID"])
-            if enc and len(ph.get("phases") or []) > len(enc["phases"]):
-                enc["phases"] = ph["phases"]
-        for f in sorted(rep.get("fights") or [], key=lambda f: f.get("startTime") or 0):
-            enc = by_id.get(f["encounterID"])
-            if not enc:
-                continue
-            if difficulty and not single and f.get("difficulty") != difficulty:
-                continue
-            enc["fights"].append(f)
-            enc["pulls"] += 1
-            if f.get("kill"):
-                enc["kills"] += 1
-            else:
-                pct = f.get("fightPercentage")
-                if pct is not None and (enc["best_pct"] is None or pct < enc["best_pct"]):
-                    enc["best_pct"] = pct
+    # Pulls in chronological order: report start time, then pull start time.
+    for report in sorted(reports, key=lambda r: r.get("startTime") or 0):
+        for definition in report.get("phases") or []:
+            fight = by_id.get(definition["encounterID"])
+            if fight and len(definition.get("phases") or []) > len(fight["phases"]):
+                fight["phases"] = definition["phases"]
+        for pull in sorted(report.get("fights") or [], key=lambda p: p.get("startTime") or 0):
+            fight = by_id.get(pull["encounterID"])
+            if fight and (single or not difficulty or pull.get("difficulty") == difficulty):
+                fight["pulls"].append(pull)
 
-    real = real_phases(encs[0]) if single else []
-    if single and len(real) > 1:
-        view = _ultimate(encs[0], len(real), ultimate_pulls)
-    else:
-        view = _raid(encs)
-    view.update(zone_id=zone["id"], zone_name=zone["name"], content=content or zone["name"])
-    for enc in encs:
-        del enc["fights"]
-    view["encounters"] = encs
-    return view
+    if single and len(real_phases(fights[0])) > 1:
+        return _ultimate(fights[0])
+    return _raid(fights)
 
 
-def real_phases(enc):
-    return [p for p in enc["phases"] if not p.get("isIntermission")]
+def real_phases(fight):
+    return [p for p in fight["phases"] if not p.get("isIntermission")]
 
 
-def last_boss_counts_double(encs):
-    """Sadique : le dernier boss en deux phases compte double (Arcadion : 4 combats -> X/5).
-    Pandaemonium sépare déjà ses derniers boss en deux combats (5 combats) : pas de doublement."""
-    if len(encs) < 2:
+def phases_cleared(fight, pull):
+    """Number of real phases (intermissions excluded) cleared during a pull."""
+    if pull.get("kill"):
+        return max(len(real_phases(fight)), 1)
+    index = pull.get("lastPhaseAsAbsoluteIndex")
+    if fight["phases"] and index is not None:
+        return len([p for p in fight["phases"][:index] if not p.get("isIntermission")])
+    # Without phase definitions, lastPhase counts phases and intermissions separately.
+    last = pull.get("lastPhase") or 0
+    return last if pull.get("lastPhaseIsIntermission") else max(0, last - 1)
+
+
+def best_percent(pulls, key="fightPercentage"):
+    values = [p.get(key) for p in pulls if not p.get("kill") and p.get(key) is not None]
+    return min(values) if values else None
+
+
+def last_boss_counts_twice(fights):
+    """Savage: a two-phase last boss counts twice (Arcadion, 4 fights -> X/5).
+    Pandaemonium already splits its last boss into two FFLogs fights, so nothing to add there."""
+    if len(fights) < 2:
         return False
-    last = encs[-1]
+    last = fights[-1]
     if last["phases"]:
         return len(real_phases(last)) >= 2
-    return len(encs) == 4
+    return len(fights) == 4
 
 
-def _raid(encs):
-    last = encs[-1] if last_boss_counts_double(encs) else None
-    total = len(encs) + (1 if last else 0)
-    current = next((e for e in encs if not e["kills"]), encs[-1])
-    cleared = all(e["kills"] for e in encs)
+def _raid(fights):
+    killed = [any(p.get("kill") for p in f["pulls"]) for f in fights]
+    current = next((f for f, k in zip(fights, killed) if not k), fights[-1])
+    cleared = all(killed)
+    done, total = sum(killed), len(fights)
+    phase, best = None, best_percent(current["pulls"])
 
-    done = sum(1 for e in encs if e["kills"])
-    phase, best = None, None if current["kills"] else current["best_pct"]
-    if last:
-        if last["kills"]:
-            done += 1                                  # deuxième phase du dernier boss
+    if last_boss_counts_twice(fights):
+        total += 1
+        last = fights[-1]
+        if killed[-1]:
+            done += 1
         elif current is last:
-            reached_p2 = [f for f in last["fights"] if _phases_done(last, f) >= 1]
-            phase = 2 if reached_p2 else 1
+            in_phase_2 = [p for p in last["pulls"] if phases_cleared(last, p) >= 1]
+            phase = 2 if in_phase_2 else 1
             done += phase - 1
-            # Meilleur % de la phase en cours : vie du boss sur les pulls arrivés à cette phase.
-            pulls = reached_p2 or last["fights"]
-            pcts = [f.get("bossPercentage") if phase == 2 else f.get("fightPercentage")
-                    for f in pulls if not f.get("kill")]
-            pcts = [p for p in pcts if p is not None]
-            best = min(pcts) if pcts else None
+            # Phase 2: best % is the boss health reached on pulls that got there.
+            best = best_percent(in_phase_2, "bossPercentage") if in_phase_2 else best
 
     return {
-        "mode": "boss",
+        "mode": "raid",
         "title": current["name"],
-        "encounter_id": current["id"],
-        "boss_index": encs.index(current) + 1,
         "phase": phase,
         "done": done,
         "total": total,
         "cleared": cleared,
-        "progress_label": f"{done}/{total}",
-        "pulls": current["pulls"],               # pulls sur le boss en cours
-        "pulls_lines": [],
+        "pulls": len(current["pulls"]),
         "best_pct": None if cleared else best,
+        "fights": fights,
     }
 
 
-def _ultimate(enc, total, mode):
-    passed_at = {}            # phase -> numéro du pull qui l'a passée pour la première fois
-    best = {}                 # phase -> meilleur % (vie du boss) atteint dans cette phase
-    for n, f in enumerate(enc["fights"], start=1):
-        reached = total + 1 if f.get("kill") else _phases_done(enc, f) + 1
-        for p in range(1, reached):
-            passed_at.setdefault(p, n)
-        if not f.get("kill") and not f.get("lastPhaseIsIntermission"):
-            pct = f.get("bossPercentage")
-            if pct is None:
-                pct = f.get("fightPercentage")
-            if pct is not None and (reached not in best or pct < best[reached]):
-                best[reached] = pct
+def _ultimate(fight):
+    total = len(real_phases(fight))
+    first_clear = {}          # phase -> number of the pull that cleared it for the first time
+    best = {}                 # phase -> lowest boss health reached in that phase
+    for number, pull in enumerate(fight["pulls"], start=1):
+        cleared_count = phases_cleared(fight, pull)
+        for phase in range(1, cleared_count + 1):
+            first_clear.setdefault(phase, number)
+        if pull.get("kill") or pull.get("lastPhaseIsIntermission"):
+            continue
+        reached = cleared_count + 1
+        pct = pull.get("bossPercentage")
+        if pct is None:
+            pct = pull.get("fightPercentage")
+        if pct is not None and pct < best.get(reached, 101):
+            best[reached] = pct
 
-    cleared = enc["kills"] > 0
-    current = total if cleared else min(len(passed_at) + 1, total)
-    # Phases déjà passées : pull auquel chacune a été battue pour la première fois.
-    lines, previous = [], 0
-    for p in range(1, total + 1):
-        if p not in passed_at:
-            break
-        at = passed_at[p]
-        count = at if mode == "cumulative" else at - previous
-        previous = at
-        lines.append(f"P{p}: {count}")
-
+    cleared = len(first_clear) >= total
+    current = total if cleared else len(first_clear) + 1
     return {
-        "mode": "phases",
-        "title": enc["name"],
-        "encounter_id": enc["id"],
-        "boss_index": None,
+        "mode": "ultimate",
+        "title": fight["name"],
         "phase": current,
-        "done": total if cleared else current - 1,
+        "done": len(first_clear),
         "total": total,
         "cleared": cleared,
-        "progress_label": "Clear" if cleared else f"Phase {current}",
-        "pulls": enc["pulls"],                   # pulls au total sur l'ultime
-        "pulls_lines": lines,
+        "pulls": len(fight["pulls"]),
+        "phase_clears": sorted(first_clear.items()),
         "best_pct": None if cleared else best.get(current),
+        "fights": [fight],
     }
-
-
-def _phases_done(enc, fight):
-    """Nombre de vraies phases terminées lors d'un wipe."""
-    idx = fight.get("lastPhaseAsAbsoluteIndex")
-    if enc["phases"] and idx is not None:
-        return sum(1 for p in enc["phases"][:idx] if not p.get("isIntermission"))
-    # Sans la liste des phases : lastPhase compte séparément phases et intermissions.
-    last = fight.get("lastPhase") or 0
-    if fight.get("lastPhaseIsIntermission"):
-        return last
-    return max(0, last - 1)

@@ -73,20 +73,17 @@ GitHub repository, which only holds the empty template `.env.example`.
 
 | Key | Value |
 |---|---|
-| `team_name` | Static name, used for reference only (no longer shown on the image) |
 | `zone_id` | Tracked content (can be changed later from the icon) |
 | `encounter_id` | Fight chosen inside a multi-fight zone (legacy ultimates, extremes), otherwise `null` |
 | `difficulty` | `101` = Savage, `100` = Normal, `null` = all (ignored for ultimates) |
-| `fflogs.static_id` | Wipe Lotus static ID: `141085` (the number in <https://fr.fflogs.com/guild/id/141085>), already filled in. Set to `null` to look it up with the next two rows |
-| `fflogs.static_name` | Static name (`Wipe Lotus`) |
-| `fflogs.guild_name` / `server` / `region` | FFLogs Free Company the static belongs to (not needed when `static_id` is set) |
+| `fflogs.static_id` | Wipe Lotus static ID: `141085` (the number in <https://fr.fflogs.com/guild/id/141085>), already filled in |
 | `fflogs.raid_team_id` | Optional: only track one raid team of the static, `null` = the whole static |
 | `github.repo` | `NicolasMelet/Static_picture_xiv` |
 | `github.min_publish_seconds` | Minimum delay between two publications (default 600 s) |
 | `autostart` | `true`: registers itself to start with Windows on first launch |
-| `ultimate_pulls` | Ultimate: `cumulative` (Pn = number of the pull that cleared phase n) or `per_phase` (Pn = pulls spent in phase n) |
+| `poll.*` | Archon/ACT process names, FFLogs query interval (300 s) and process check interval (30 s) |
 
-To find the IDs of the Free Company, the static and the contents: icon menu →
+To find the IDs (the static's raid teams, every `zone_id` and `encounter_id`): icon menu →
 **Find IDs (static, contents)**, or `ProgFFLogs.exe --setup`. The result opens in Notepad.
 
 The icon menu also toggles **Start with Windows** and has **Open settings folder**, which holds
@@ -132,8 +129,7 @@ of its bosses.
 - **Unknown fight**: if a fight has no folder (content released after this version, different
   FFLogs name), the program creates one in `4 - Other Content` the first time it is tracked.
 - **Additions**: you can create other folders or phases, they are picked up. Existing folders are
-  never deleted or renamed (except the French folder names of v1.1.0, renamed to English
-  automatically with their images).
+  never deleted or renamed.
 - **Recommended size**: 850 × 450 or larger with the same ratio (center-cropped otherwise).
 - **Bundled images**: images placed in the repository's `images/` folder are built into the
   executable and are used when you have none for that fight.

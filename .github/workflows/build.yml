@@ -1,7 +1,7 @@
 name: Build Windows
 
-# - push sur main : construit l'exe et le teste (téléchargeable dans l'onglet Actions)
-# - tag v* (ex. v1.0.0) : construit l'exe et publie une release avec ProgFFLogs.exe
+# - push to main: builds and tests the executable (downloadable from the Actions tab)
+# - tag v* (e.g. v1.0.0): builds the executable and publishes a release with ProgFFLogs.exe
 on:
   push:
     branches: [main]
@@ -12,7 +12,7 @@ on:
 permissions:
   contents: write
 
-# Un nouveau push annule le build précédent encore en cours sur la même branche.
+# A new push cancels the previous build still running on the same branch.
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -28,10 +28,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Dépendances
+      - name: Install dependencies
         run: pip install -r requirements.txt pyinstaller
 
-      - name: Construction de l'exécutable
+      - name: Build the executable
         run: >
           pyinstaller --noconfirm --onefile --windowed --name ProgFFLogs
           --add-data "config.example.json;."
@@ -39,7 +39,7 @@ jobs:
           --add-data "images;images"
           prog_tracker.py
 
-      - name: Test de l'exécutable
+      - name: Test the executable
         shell: pwsh
         timeout-minutes: 3
         run: |

@@ -3,7 +3,7 @@ FFLogs progression tracker -> image hosted on GitHub Pages.
 
   ProgFFLogs.exe            runs the tracker with a taskbar icon
   ProgFFLogs.exe --once     renders and publishes the image once, then exits
-  ProgFFLogs.exe --setup    lists the IDs of the Free Company, statics and contents
+  ProgFFLogs.exe --setup    lists the static's raid teams and every content with its fights
   ProgFFLogs.exe --selftest checks that the executable works (used by the build)
 
 (In development: python prog_tracker.py ...)
@@ -13,7 +13,6 @@ import hashlib
 import json
 import logging
 import os
-import subprocess
 import sys
 import threading
 import time
@@ -22,62 +21,87 @@ import webbrowser
 from pathlib import Path
 
 from fflogs import FFLogs
+from images import create_folders, ensure_fight_folder, load_background
 from progress import compute
 from publisher import GitHubPages
-from images import create_skeleton, ensure_fight_dir, load_background
 from render import render
 
-FROZEN = getattr(sys, "frozen", False)          # vrai dans l'exécutable PyInstaller
+APP_NAME = "ProgFFLogs"
+FROZEN = getattr(sys, "frozen", False)            # True inside the PyInstaller executable
 HERE = Path(__file__).resolve().parent
-BUNDLE = Path(getattr(sys, "_MEIPASS", HERE))     # fichiers modèles embarqués dans l'exe
-# Exécutable : réglages dans %APPDATA%\ProgFFLogs ; en développement : à côté du script.
-DATA = Path(os.environ.get("APPDATA", Path.home())) / "ProgFFLogs" if FROZEN else HERE
+BUNDLE = Path(getattr(sys, "_MEIPASS", HERE))     # files embedded in the executable
+# Executable: user data in %APPDATA%\ProgFFLogs; development: next to the script.
+DATA = Path(os.environ.get("APPDATA", Path.home())) / APP_NAME if FROZEN else HERE
 DATA.mkdir(parents=True, exist_ok=True)
 CONFIG = DATA / "config.json"
 ENV_FILE = DATA / ".env"
 CACHE = DATA / "cache"
+STATE = CACHE / "state.json"
 OUTPUT = DATA / "output" / "prog.png"
-IMAGES = DATA / "images"                          # vos images de fond (prioritaires)
-BUNDLED_IMAGES = BUNDLE / "images"                # images fournies avec le programme
-APP_NAME = "ProgFFLogs"
+USER_IMAGES = DATA / "images"
+BUNDLED_IMAGES = BUNDLE / "images"
 
-logging.basicConfig(
-    filename=DATA / "prog_tracker.log",
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-)
+logging.basicConfig(filename=DATA / "prog_tracker.log", level=logging.INFO,
+                    format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("prog")
 if sys.stdout and sys.stdout.isatty():
     log.addHandler(logging.StreamHandler(sys.stdout))
 
 
-def load_env(path=ENV_FILE):
-    """Charge les clés depuis .env (KEY=valeur), sans écraser les variables déjà définies."""
+# --- Files --------------------------------------------------------------------------
+
+def read_json(path, default=None):
     try:
-        lines = path.read_text(encoding="utf-8-sig").splitlines()
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return default
+
+
+def write_json(path, data, indent=None):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=indent), encoding="utf-8")
+
+
+def load_env():
+    """Loads KEY=value lines from .env into the environment (existing variables win)."""
+    try:
+        lines = ENV_FILE.read_text(encoding="utf-8-sig").splitlines()
     except OSError:
         return
     for line in lines:
         line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
 def secret(name):
     value = os.environ.get(name, "").strip()
-    if not value or value.startswith(("PASTE_HERE", "COLLER_ICI")):
+    if not value or value == "PASTE_HERE":
         raise SystemExit(f"{name} is missing: fill it in {ENV_FILE}")
     return value
 
 
-def fflogs_client():
-    return FFLogs(secret("FFLOGS_CLIENT_ID"), secret("FFLOGS_CLIENT_SECRET"))
+def first_run():
+    """Creates .env and config.json from the bundled templates; True if one was missing."""
+    created = []
+    for template, target in ((".env.example", ENV_FILE), ("config.example.json", CONFIG)):
+        if not target.exists():
+            target.write_text((BUNDLE / template).read_text(encoding="utf-8"), encoding="utf-8")
+            created.append(target)
+    if created:
+        message("First launch: fill in the files that are about to open "
+                "(keys in .env, settings in config.json), then start Prog FFLogs again.\n\n"
+                f"Folder: {DATA}")
+        for path in created:
+            open_file(path)
+    return bool(created)
 
+
+# --- Windows ------------------------------------------------------------------------
 
 def message(text, error=False):
-    """Affiche un message : boîte de dialogue Windows dans l'exe, console sinon."""
+    """Windows message box in the executable, console output otherwise."""
     if FROZEN and os.name == "nt":
         import ctypes
         ctypes.windll.user32.MessageBoxW(None, str(text), "Prog FFLogs", 0x10 if error else 0x40)
@@ -92,25 +116,7 @@ def open_file(path):
         print("File:", path)
 
 
-def first_run():
-    """Crée .env et config.json à partir des modèles s'ils n'existent pas encore."""
-    created = []
-    for name, target in ((".env.example", ENV_FILE), ("config.example.json", CONFIG)):
-        if not target.exists():
-            target.write_text((BUNDLE / name).read_text(encoding="utf-8"), encoding="utf-8")
-            created.append(target)
-    if created:
-        message("First launch: fill in the files that are about to open "
-                "(keys in .env, settings in config.json), then start Prog FFLogs again.\n\n"
-                f"Folder: {DATA}")
-        for path in created:
-            open_file(path)
-    return bool(created)
-
-
-# --- Lancement au démarrage de Windows (registre, sans droits administrateur) ---
-
-RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"   # per-user startup programs
 
 
 def autostart_enabled():
@@ -131,43 +137,16 @@ def set_autostart(enabled):
     import winreg
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
         if enabled:
-            cmd = f'"{sys.executable}"' if FROZEN else \
+            command = f'"{sys.executable}"' if FROZEN else \
                 f'"{Path(sys.executable).with_name("pythonw.exe")}" "{HERE / "prog_tracker.py"}"'
-            winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, cmd)
-        else:
-            try:
-                winreg.DeleteValue(key, APP_NAME)
-            except OSError:
-                pass
-
-
-def load_config():
-    with open(CONFIG, encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-def save_config(cfg):
-    with open(CONFIG, "w", encoding="utf-8") as fh:
-        json.dump(cfg, fh, indent=2, ensure_ascii=False)
-
-
-def read_json(path, default=None):
-    try:
-        with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
-    except (OSError, ValueError):
-        return default
-
-
-def write_json(path, data):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False)
+            winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, command)
+        elif autostart_enabled():
+            winreg.DeleteValue(key, APP_NAME)
 
 
 def running_process_names():
-    """Noms des processus Windows en cours, via l'API Windows (CreateToolhelp32Snapshot) :
-    quelques millisecondes, sans lancer de programme externe comme tasklist."""
+    """Lowercase names of the running Windows processes, through CreateToolhelp32Snapshot:
+    a few milliseconds, without starting an external program."""
     import ctypes
     from ctypes import wintypes
 
@@ -192,342 +171,267 @@ def running_process_names():
         entry = PROCESSENTRY32W()
         entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
         names = set()
-        ok = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
-        while ok:
+        found = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
+        while found:
             names.add(entry.szExeFile.lower())
-            ok = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
+            found = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
         return names
     finally:
         kernel32.CloseHandle(snapshot)
 
 
-def archon_running(names):
-    """Vrai si l'application Archon (ou ACT) tourne : on interroge alors FFLogs."""
+def any_process_running(names):
     if os.name != "nt":
         return False
-    try:
-        running = running_process_names()
-    except Exception:
-        log.exception("Cannot list processes through the Windows API, falling back to tasklist")
-        try:
-            out = subprocess.run(
-                ["tasklist", "/fo", "csv", "/nh"], capture_output=True, text=True,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            ).stdout.lower()
-        except OSError:
-            return False
-        return any(f'"{n.lower()}"' in out for n in names)
-    return any(n.lower() in running for n in names)
+    running = running_process_names()
+    return any(name.lower() in running for name in names)
 
 
-class Tracker:
-    def __init__(self, cfg):
-        self.cfg = cfg
-        self.api = fflogs_client()
-        gh = cfg["github"]
-        self.pages = GitHubPages(secret("GITHUB_TOKEN"), gh["repo"], gh.get("branch", "gh-pages"),
-                                 gh.get("path", "prog.png"))
-        self.wake = threading.Event()
-        self.stop = threading.Event()
-        self.force = False
-        self.state = read_json(CACHE / "state.json", {})
-        f = cfg["fflogs"]
-        if not f.get("static_id"):
-            f["static_id"] = resolve_static(self.api, f)["id"]
-            save_config(cfg)
-
-    # --- Une itération -------------------------------------------------------
-
-    def check(self, force=False):
-        cfg = self.cfg
-        zone_id = cfg["zone_id"]
-        guild_id = cfg["fflogs"]["static_id"]
-        tag_id = cfg["fflogs"].get("raid_team_id")
-        encounter_id = cfg.get("encounter_id")
-
-        reports = self.api.report_list(guild_id, zone_id, tag_id)
-        signature = hashlib.sha1(json.dumps(
-            [zone_id, encounter_id, tag_id, sorted((r["code"], r["endTime"]) for r in reports)]
-        ).encode()).hexdigest()
-        if not force and signature == self.state.get("signature"):
-            log.info("No new log (%d reports)", len(reports))
-            return False
-
-        # Ne retélécharge que les rapports nouveaux ou encore en cours d'envoi.
-        fights_cache = CACHE / "fights"
-        to_fetch, loaded = [], []
-        for r in reports:
-            cached = read_json(fights_cache / f"{r['code']}.json")
-            # Les caches antérieurs à la v1.1 n'ont pas l'heure des pulls : on les recharge.
-            if cached and cached.get("endTime") == r["endTime"] \
-                    and "startTime" in cached.get("report", {}):
-                loaded.append(cached["report"])
-            else:
-                to_fetch.append(r)
-        for i in range(0, len(to_fetch), 10):
-            chunk = to_fetch[i:i + 10]
-            fetched = self.api.report_fights([r["code"] for r in chunk])
-            for r in chunk:
-                rep = fetched.get(r["code"])
-                if rep:
-                    write_json(fights_cache / f"{r['code']}.json",
-                               {"endTime": r["endTime"], "report": rep})
-                    loaded.append(rep)
-        log.info("%d reports (%d new/updated)", len(reports), len(to_fetch))
-
-        zone, content = selected_content(self.api.zone(zone_id), encounter_id)
-        prog = compute(zone, loaded, cfg.get("difficulty"),
-                       cfg.get("ultimate_pulls", "cumulative"), content)
-        try:
-            for e in prog["encounters"]:      # dossier dans « Autres contenus » s'il manque
-                ensure_fight_dir(IMAGES, zone["name"], e["name"],
-                                 [p["name"] for p in e["phases"] if not p.get("isIntermission")])
-        except OSError:
-            log.exception("Cannot create the image folders")
-        bg, bg_path = load_background(prog["title"], zone["name"], prog["phase"],
-                                      IMAGES, BUNDLED_IMAGES)
-        log.info("Background: %s", bg_path)
-        render(prog, cfg.get("team_name", ""), OUTPUT, bg)
-
-        digest = hashlib.sha1(json.dumps(
-            prog, sort_keys=True, default=str).encode()).hexdigest()
-        if force or digest != self.state.get("digest"):
-            self.state["pending"] = f"Prog {zone['name']}: {prog['done']}/{prog['total']}"
-        else:
-            log.info("Progression unchanged, nothing to publish")
-
-        self.state.update(signature=signature, digest=digest)
-        write_json(CACHE / "state.json", self.state)
-        self.publish_if_due()
-        return True
-
-    def publish_if_due(self):
-        """Publie l'image en attente, au plus une fois toutes les `min_publish_seconds`
-        (GitHub Pages limite les déploiements à ~10 par heure). N'appelle pas FFLogs."""
-        message = self.state.get("pending")
-        if not message or not OUTPUT.exists():
-            return
-        wait = self.cfg.get("github", {}).get("min_publish_seconds", 600)
-        remaining = self.state.get("last_publish", 0) + wait - time.time()
-        if remaining > 0:
-            log.info("Publication postponed by %d s (GitHub Pages limit)", remaining)
-            return
-        url = self.pages.upload(OUTPUT, message)
-        log.info("Image published: %s", url)
-        self.state.update(pending=None, last_publish=time.time())
-        write_json(CACHE / "state.json", self.state)
-
-    # --- Boucle --------------------------------------------------------------
-
-    def loop(self):
-        """FFLogs n'est interrogé que si Archon ou ACT est ouvert (toutes les 5 min par
-        défaut), plus une dernière fois à leur fermeture pour ne pas rater le dernier envoi.
-        Archon/ACT fermés : seule la liste des processus Windows est consultée."""
-        poll = self.cfg.get("poll", {})
-        interval = poll.get("active_seconds", 300)
-        watch = poll.get("process_check_seconds", 30)
-        names = poll.get("process_names", ["Archon.exe", "Advanced Combat Tool.exe"])
-        was_running, last_check = False, 0.0
-        while not self.stop.is_set():
-            running = archon_running(names)
-            force, self.force = self.force, False
-            due = running and time.monotonic() - last_check >= interval
-            closed = was_running and not running
-            if force or due or closed:
-                if closed:
-                    log.info("Archon/ACT closed: last check")
-                try:
-                    self.check(force=force)
-                except Exception:
-                    log.exception("Error during the update")
-                last_check = time.monotonic()
-            else:
-                try:
-                    self.publish_if_due()
-                except Exception:
-                    log.exception("Error while publishing")
-            was_running = running
-            self.wake.wait(watch)
-            self.wake.clear()
-
-    def refresh_now(self, force=True):
-        self.force = force
-        self.wake.set()
-
-    def set_zone(self, zone_id, encounter_id=None):
-        self.cfg["zone_id"] = zone_id
-        self.cfg["encounter_id"] = encounter_id
-        save_config(self.cfg)
-        log.info("Selected content: zone %s, fight %s", zone_id, encounter_id)
-        self.refresh_now()
-
-
-# --- Contenus et dossiers d'images -----------------------------------------------
+# --- Contents -----------------------------------------------------------------------
 
 def is_pick_one(zone):
-    """Zone regroupant plusieurs combats indépendants (ultimes « Legacy », défis extrêmes...) :
-    on y choisit un combat précis au lieu de suivre toute la zone."""
-    z = zone["name"].lower()
+    """Zone grouping independent fights (legacy ultimates, extreme trials...): one fight is
+    chosen in a sub-menu instead of tracking the whole zone."""
+    name = zone["name"].lower()
     return len(zone["encounters"]) > 1 and any(
-        k in z for k in ("ultimate", "extreme", "trial", "unreal"))
+        word in name for word in ("ultimate", "extreme", "trial", "unreal"))
 
 
-def selected_content(zone, encounter_id=None):
-    """Zone restreinte au combat choisi, et nom affiché du contenu."""
-    if encounter_id:
-        encs = [e for e in zone["encounters"] if e["id"] == encounter_id]
-        if encs:
-            return dict(zone, encounters=encs), encs[0]["name"]
-    return zone, zone["name"]
+def zone_catalog(api):
+    """FFLogs zones grouped by expansion, newest expansion first (cached on disk)."""
+    zones = read_json(CACHE / "zones.json")
+    if not zones:
+        zones = [z for z in api.zones() if z["encounters"]]
+        write_json(CACHE / "zones.json", zones)
+    by_expansion = {}
+    for zone in zones:
+        expansion = zone["expansion"]
+        by_expansion.setdefault((expansion["id"], expansion["name"]), []).append(zone)
+    return sorted(by_expansion.items(), key=lambda item: -item[0][0])
 
 
 def setup_images():
-    """Crée l'arborescence des images (catalogue) ; appelée à chaque lancement."""
     try:
-        create_skeleton(IMAGES)
+        create_folders(USER_IMAGES)
     except OSError:
         log.exception("Cannot create the image folders")
 
 
-# --- Icône de la barre des tâches --------------------------------------------
+# --- Tracker ------------------------------------------------------------------------
 
-def zone_catalog(api):
-    path = CACHE / "zones.json"
-    zones = read_json(path)
-    if not zones:
-        zones = [z for z in api.zones() if z["encounters"]]
-        write_json(path, zones)
-    by_exp = {}
-    for z in zones:
-        exp = z["expansion"]
-        by_exp.setdefault((exp["id"], exp["name"]), []).append(z)
-    return sorted(by_exp.items(), key=lambda kv: -kv[0][0])
+class Tracker:
+    def __init__(self, cfg):
+        self.cfg = cfg
+        if not cfg["fflogs"].get("static_id"):
+            raise SystemExit(f"fflogs.static_id is missing in {CONFIG}")
+        self.api = FFLogs(secret("FFLOGS_CLIENT_ID"), secret("FFLOGS_CLIENT_SECRET"))
+        github = cfg["github"]
+        self.pages = GitHubPages(secret("GITHUB_TOKEN"), github["repo"],
+                                 github.get("branch", "gh-pages"), github.get("path", "prog.png"))
+        self.state = read_json(STATE, {})
+        self.wake = threading.Event()
+        self.stop = threading.Event()
+        self.force = False
 
+    def save_state(self):
+        write_json(STATE, self.state)
+
+    def update(self, force=False):
+        """Fetches the static's reports, renders the image and queues it for publishing.
+        Without force, nothing happens when no report was added or extended."""
+        cfg = self.cfg
+        zone_id, encounter_id = cfg["zone_id"], cfg.get("encounter_id")
+        static_id, raid_team_id = cfg["fflogs"]["static_id"], cfg["fflogs"].get("raid_team_id")
+
+        reports = self.api.report_list(static_id, zone_id, raid_team_id)
+        signature = hashlib.sha1(json.dumps(
+            [zone_id, encounter_id, raid_team_id, sorted((r["code"], r["endTime"]) for r in reports)]
+        ).encode()).hexdigest()
+        if not force and signature == self.state.get("signature"):
+            log.info("No new log (%d reports)", len(reports))
+            return
+
+        # Only download reports that are new or still growing (live logging).
+        loaded, to_fetch = [], []
+        for report in reports:
+            cached = read_json(CACHE / "fights" / f"{report['code']}.json")
+            if cached and cached["endTime"] == report["endTime"]:
+                loaded.append(cached["report"])
+            else:
+                to_fetch.append(report)
+        for start in range(0, len(to_fetch), 10):
+            batch = to_fetch[start:start + 10]
+            fetched = self.api.report_fights([r["code"] for r in batch])
+            for report in batch:
+                if report["code"] in fetched:
+                    write_json(CACHE / "fights" / f"{report['code']}.json",
+                               {"endTime": report["endTime"], "report": fetched[report["code"]]})
+                    loaded.append(fetched[report["code"]])
+        log.info("%d reports (%d new/updated)", len(reports), len(to_fetch))
+
+        zone = self.api.zone(zone_id)
+        if encounter_id:
+            zone["encounters"] = [e for e in zone["encounters"] if e["id"] == encounter_id]
+        view = compute(zone, loaded, cfg.get("difficulty"))
+
+        for fight in view["fights"]:
+            names = [p["name"] for p in fight["phases"] if not p.get("isIntermission")]
+            ensure_fight_folder(USER_IMAGES, zone["name"], fight["name"], names)
+        image, path = load_background(view["title"], zone["name"], view["phase"],
+                                      USER_IMAGES, BUNDLED_IMAGES)
+        log.info("Background: %s", path)
+        render(view, OUTPUT, image)
+
+        shown = {k: v for k, v in view.items() if k != "fights"}
+        digest = hashlib.sha1(json.dumps(shown, sort_keys=True).encode()).hexdigest()
+        if force or digest != self.state.get("digest"):
+            self.state["pending"] = f"Prog {view['title']}: {view['done']}/{view['total']}"
+        else:
+            log.info("Progression unchanged, nothing to publish")
+        self.state.update(signature=signature, digest=digest)
+        self.save_state()
+        self.publish_if_due()
+
+    def publish_if_due(self):
+        """Publishes the pending image, at most once every `min_publish_seconds` (GitHub Pages
+        allows about 10 deployments per hour). Never calls FFLogs."""
+        commit_message = self.state.get("pending")
+        if not commit_message or not OUTPUT.exists():
+            return
+        delay = self.cfg["github"].get("min_publish_seconds", 600)
+        remaining = self.state.get("last_publish", 0) + delay - time.time()
+        if remaining > 0:
+            log.info("Publication postponed by %d s (GitHub Pages limit)", remaining)
+            return
+        log.info("Image published: %s", self.pages.upload(OUTPUT, commit_message))
+        self.state.update(pending=None, last_publish=time.time())
+        self.save_state()
+
+    def loop(self):
+        """FFLogs is only queried while Archon or ACT runs (every 5 min by default), plus once
+        when they close so the last upload is not missed. Otherwise only the local process list
+        is checked."""
+        poll = self.cfg.get("poll", {})
+        interval = poll.get("active_seconds", 300)
+        check_every = poll.get("process_check_seconds", 30)
+        names = poll.get("process_names", ["Archon.exe", "Advanced Combat Tool.exe"])
+        was_running, last_update = False, 0.0
+        while not self.stop.is_set():
+            force, self.force = self.force, False
+            try:
+                running = any_process_running(names)
+                due = running and time.monotonic() - last_update >= interval
+                closed = was_running and not running
+                if force or due or closed:
+                    if closed:
+                        log.info("Archon/ACT closed: last check")
+                    last_update = time.monotonic()
+                    self.update(force=force)
+                else:
+                    self.publish_if_due()
+                was_running = running
+            except Exception:
+                log.exception("Error during the update")
+            self.wake.wait(check_every)
+            self.wake.clear()
+
+    def update_now(self):
+        self.force = True
+        self.wake.set()
+
+    def select(self, zone_id, encounter_id=None):
+        self.cfg["zone_id"], self.cfg["encounter_id"] = zone_id, encounter_id
+        write_json(CONFIG, self.cfg, indent=2)
+        log.info("Selected content: zone %s, fight %s", zone_id, encounter_id)
+        self.update_now()
+
+
+# --- Taskbar icon -------------------------------------------------------------------
 
 def run_tray(tracker):
     import pystray
     from PIL import Image
 
-    def zone_item(z):
-        if is_pick_one(z):               # un sous-menu pour choisir le combat
-            return pystray.MenuItem(z["name"], pystray.Menu(*[encounter_item(z, e)
-                                                              for e in z["encounters"]]))
+    def zone_item(zone):
+        if is_pick_one(zone):
+            return pystray.MenuItem(zone["name"], pystray.Menu(
+                *[fight_item(zone, fight) for fight in zone["encounters"]]))
         return pystray.MenuItem(
-            z["name"], lambda icon, item: tracker.set_zone(z["id"]),
-            checked=lambda item: tracker.cfg["zone_id"] == z["id"]
-            and not tracker.cfg.get("encounter_id"), radio=True)
+            zone["name"], lambda icon, item: tracker.select(zone["id"]), radio=True,
+            checked=lambda item: tracker.cfg["zone_id"] == zone["id"]
+            and not tracker.cfg.get("encounter_id"))
 
-    def encounter_item(z, e):
+    def fight_item(zone, fight):
         return pystray.MenuItem(
-            e["name"], lambda icon, item: tracker.set_zone(z["id"], e["id"]),
-            checked=lambda item: tracker.cfg.get("encounter_id") == e["id"], radio=True)
+            fight["name"], lambda icon, item: tracker.select(zone["id"], fight["id"]), radio=True,
+            checked=lambda item: tracker.cfg.get("encounter_id") == fight["id"])
 
+    content_menu = pystray.Menu(*[
+        pystray.MenuItem(expansion, pystray.Menu(*[zone_item(z) for z in zones]))
+        for (_, expansion), zones in zone_catalog(tracker.api)])
 
-    catalog = zone_catalog(tracker.api)
-    zone_menu = pystray.Menu(*[
-        pystray.MenuItem(exp_name, pystray.Menu(*[zone_item(z) for z in zones]))
-        for (_, exp_name), zones in catalog
-    ])
+    def reload_contents(icon, item):
+        (CACHE / "zones.json").unlink(missing_ok=True)
+        icon.notify("Restart the application to see the new contents.")
+
+    def open_images(icon, item):
+        setup_images()
+        open_file(USER_IMAGES)
 
     def quit_app(icon, item):
         tracker.stop.set()
         tracker.wake.set()
         icon.stop()
 
-    def reload_zones(icon, item):
-        (CACHE / "zones.json").unlink(missing_ok=True)
-        icon.notify("Restart the application to see the new contents.")
-
-    def toggle_autostart(icon, item):
-        set_autostart(not autostart_enabled())
-
-    def open_images(icon, item):
-        setup_images()
-        open_file(IMAGES)
-
-    def show_ids(icon, item):
-        threading.Thread(target=lambda: write_setup(tracker.cfg), daemon=True).start()
-
     menu = pystray.Menu(
-        pystray.MenuItem("Content", zone_menu),
-        pystray.MenuItem("Update now", lambda i, it: tracker.refresh_now()),
+        pystray.MenuItem("Content", content_menu),
+        pystray.MenuItem("Update now", lambda icon, item: tracker.update_now()),
         pystray.MenuItem("Open online image",
-                         lambda i, it: webbrowser.open(tracker.pages.public_url)),
-        pystray.MenuItem("Open local image", lambda i, it: open_file(OUTPUT)),
-        pystray.MenuItem("Reload content list", reload_zones),
+                         lambda icon, item: webbrowser.open(tracker.pages.public_url)),
+        pystray.MenuItem("Open local image", lambda icon, item: open_file(OUTPUT)),
+        pystray.MenuItem("Reload content list", reload_contents),
         pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Find IDs (static, contents)", show_ids),
-        pystray.MenuItem("Open settings folder", lambda i, it: open_file(DATA)),
+        pystray.MenuItem("Find IDs (static, contents)", lambda icon, item: threading.Thread(
+            target=write_setup, args=(tracker.cfg,), daemon=True).start()),
+        pystray.MenuItem("Open settings folder", lambda icon, item: open_file(DATA)),
         pystray.MenuItem("Open images folder", open_images),
-        pystray.MenuItem("Start with Windows", toggle_autostart,
+        pystray.MenuItem("Start with Windows",
+                         lambda icon, item: set_autostart(not autostart_enabled()),
                          checked=lambda item: autostart_enabled()),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", quit_app),
     )
-    icon_img = Image.new("RGB", (64, 64), (225, 140, 60))
-    icon = pystray.Icon("fflogs_prog", icon_img, "Prog FFLogs", menu)
+    icon = pystray.Icon("fflogs_prog", Image.new("RGB", (64, 64), (225, 140, 60)),
+                        "Prog FFLogs", menu)
     threading.Thread(target=tracker.loop, daemon=True).start()
     icon.run()
 
 
-# --- Aide à la configuration -------------------------------------------------
-
-def resolve_static(api, f):
-    """Trouve le static (Guild de type 1) : par ID, ou par son nom dans la Free Company."""
-    if f.get("static_id"):
-        return api.guild(f["static_id"])
-    g = api.guild(name=f.get("guild_name"), server=f.get("server"), region=f.get("region"))
-    if not g:
-        raise SystemExit("Free Company not found: check guild_name / server / region, "
-                         "or set static_id directly.")
-    wanted = (f.get("static_name") or "").strip().lower()
-    if g["name"].lower() == wanted:
-        return g
-    for st in g["statics"] or []:
-        if st["name"].strip().lower() == wanted:
-            return st
-    names = ", ".join(st["name"] for st in g["statics"] or []) or "none"
-    raise SystemExit(f"Static \"{f.get('static_name')}\" not found in {g['name']} "
-                     f"(statics: {names}).")
-
-
-def setup_lines(cfg):
-    out = []
-    print = out.append  # noqa: A001 - collecte les lignes au lieu de les afficher
-    api = fflogs_client()
-    f = cfg["fflogs"]
-    if f.get("guild_name"):
-        g = api.guild(name=f["guild_name"], server=f.get("server"), region=f.get("region"))
-        if g:
-            kind = "Static" if str(g["type"]) == "1" else "Free Company"
-            print(f"{kind}: {g['name']} ({g['server']['name']})  ->  id = {g['id']}")
-            for st in g["statics"] or []:
-                print(f"  static: {st['name']:<30} ->  static_id = {st['id']}")
-        else:
-            print("Free Company not found: check guild_name / server / region.")
-    try:
-        st = resolve_static(api, f)
-        print(f"\nTracked static: {st['name']}  ->  static_id = {st['id']}")
-        for t in st.get("tags") or []:
-            print(f"  raid team: {t['name']:<30} ->  raid_team_id = {t['id']}")
-    except SystemExit as e:
-        print(f"\n{e}")
-    print("\nAvailable contents:")
-    for (_, exp), zones in zone_catalog(api):
-        print(f"  [{exp}]")
-        for z in zones:
-            print(f"    {z['id']:>4}  {z['name']}")
-            for e in z["encounters"]:
-                print(f"            fight: {e['name']}  (id {e['id']})")
-    return out
-
+# --- Commands -----------------------------------------------------------------------
 
 def write_setup(cfg):
-    """Écrit les ID dans setup.txt et l'ouvre (l'exe n'a pas de console)."""
+    """Writes the static's raid teams and every content with its fights to setup.txt."""
     try:
-        text = "\n".join(setup_lines(cfg))
-    except SystemExit as e:
-        text = str(e)
+        api = FFLogs(secret("FFLOGS_CLIENT_ID"), secret("FFLOGS_CLIENT_SECRET"))
+        lines = []
+        static = api.static(cfg["fflogs"]["static_id"])
+        if static:
+            lines.append(f"Static: {static['name']} ({static['server']['name']})  "
+                         f"->  static_id = {static['id']}")
+            for team in static["tags"] or []:
+                lines.append(f"  raid team: {team['name']:<30} ->  raid_team_id = {team['id']}")
+        else:
+            lines.append(f"No static with id {cfg['fflogs']['static_id']} on FFLogs.")
+        lines.append("\nContents:")
+        for (_, expansion), zones in zone_catalog(api):
+            lines.append(f"  [{expansion}]")
+            for zone in zones:
+                lines.append(f"    zone_id = {zone['id']:>4}  {zone['name']}")
+                for fight in zone["encounters"]:
+                    lines.append(f"        encounter_id = {fight['id']:>5}  {fight['name']}")
+        text = "\n".join(lines)
+    except Exception as e:
+        text = f"Error: {e}"
     path = DATA / "setup.txt"
     path.write_text(text, encoding="utf-8")
     if FROZEN:
@@ -537,41 +441,41 @@ def write_setup(cfg):
 
 
 def selftest():
-    """Vérifie l'exécutable sans réseau obligatoire : modules embarqués, modèles, rendu."""
-    import pystray  # noqa: F401
-    for name in (".env.example", "config.example.json"):
-        assert (BUNDLE / name).read_text(encoding="utf-8")
-    zone = {"id": 0, "name": "Selftest", "encounters": [{"id": 0, "name": "Boss"}]}
-    fights = [{"encounterID": 0, "kill": False, "fightPercentage": 42.0,
-               "bossPercentage": 42.0, "lastPhase": 1}]
-    out = DATA / "output" / "selftest.png"
-    tmp = DATA / "selftest-images"
-    create_skeleton(tmp)
-    assert (tmp / "1 - Ultimates" / "6. FRU - Futures Rewritten" / "Phase 5 - Pandora").is_dir()
-    bg, path = load_background("Selftest", "Selftest", None, tmp, BUNDLED_IMAGES)
+    """Checks the executable without network access: embedded files, image folders, rendering,
+    process detection."""
+    import pystray  # noqa: F401  (the tray library must be bundled)
+    for template in (".env.example", "config.example.json"):
+        assert (BUNDLE / template).read_text(encoding="utf-8")
+    folders = DATA / "selftest-images"
+    create_folders(folders)
+    assert (folders / "1 - Ultimates" / "6. FRU - Futures Rewritten" / "Phase 5 - Pandora").is_dir()
+    image, path = load_background("Selftest", "Selftest", None, folders, BUNDLED_IMAGES)
     assert path and path.stem == "default", path
-    render(compute(zone, [{"fights": fights}]), "Selftest", out, bg)
+    zone = {"id": 0, "name": "Selftest", "encounters": [{"id": 0, "name": "Boss"}]}
+    pull = {"encounterID": 0, "kill": False, "fightPercentage": 42.0, "lastPhase": 1}
+    out = DATA / "output" / "selftest.png"
+    render(compute(zone, [{"fights": [pull]}]), out, image)
     assert out.stat().st_size > 0
     if os.name == "nt":
         own = Path(sys.executable).name
         start = time.perf_counter()
         names = running_process_names()
         elapsed = (time.perf_counter() - start) * 1000
-        (DATA / "selftest.txt").write_text(            # lu par le build (pas de console)
+        (DATA / "selftest.txt").write_text(          # read by the build (no console)
             f"{len(names)} processes listed in {elapsed:.1f} ms\n", encoding="utf-8")
         assert own.lower() in names, f"{own} missing from the process list"
-        assert archon_running([own]) and not archon_running(["inexistant-xyz.exe"])
+        assert any_process_running([own]) and not any_process_running(["missing-xyz.exe"])
     return 0
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--once", action="store_true")
-    ap.add_argument("--setup", action="store_true")
-    ap.add_argument("--selftest", action="store_true")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--once", action="store_true")
+    parser.add_argument("--setup", action="store_true")
+    parser.add_argument("--selftest", action="store_true")
+    args = parser.parse_args()
     if args.selftest:
-        # Jamais de boîte de dialogue ici : sur la machine de build, personne ne peut cliquer.
+        # Never show a dialog here: nobody can click it on the build machine.
         try:
             sys.exit(selftest())
         except Exception:
@@ -581,24 +485,26 @@ def main():
     if first_run():
         return
     load_env()
-    cfg = load_config()
+    cfg = read_json(CONFIG)
+    if cfg is None:
+        raise SystemExit(f"Cannot read {CONFIG}")
     setup_images()
     if args.setup:
         write_setup(cfg)
-    elif args.once:
-        tracker = Tracker(cfg)
-        tracker.check(force=True)
+        return
+    tracker = Tracker(cfg)
+    if args.once:
+        tracker.update(force=True)
         if tracker.state.get("pending"):
             message("Publication postponed (rate limit); the background tracker will publish it.")
         else:
             message(f"Image published: {tracker.pages.public_url}")
-    else:
-        tracker = Tracker(cfg)
-        if cfg.get("autostart", True) and not tracker.state.get("autostart_set"):
-            set_autostart(True)   # une seule fois : l'utilisateur peut le désactiver ensuite
-            tracker.state["autostart_set"] = True
-            write_json(CACHE / "state.json", tracker.state)
-        run_tray(tracker)
+        return
+    if cfg.get("autostart", True) and not tracker.state.get("autostart_set"):
+        set_autostart(True)              # only once: the user can turn it off afterwards
+        tracker.state["autostart_set"] = True
+        tracker.save_state()
+    run_tray(tracker)
 
 
 if __name__ == "__main__":

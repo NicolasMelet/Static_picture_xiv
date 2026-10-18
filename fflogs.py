@@ -1,4 +1,4 @@
-"""Client minimal pour l'API v2 (GraphQL) de FFLogs."""
+"""Minimal client for the FFLogs v2 GraphQL API (client credentials, public data only)."""
 import time
 
 import requests
@@ -12,106 +12,77 @@ class FFLogs:
         self.client_id = client_id
         self.client_secret = client_secret
         self._token = None
-        self._token_exp = 0
+        self._token_expiry = 0
 
     def _auth(self):
-        if self._token and time.time() < self._token_exp - 60:
+        if self._token and time.time() < self._token_expiry - 60:
             return self._token
-        r = requests.post(
-            TOKEN_URL,
-            data={"grant_type": "client_credentials"},
-            auth=(self.client_id, self.client_secret),
-            timeout=30,
-        )
+        r = requests.post(TOKEN_URL, data={"grant_type": "client_credentials"},
+                          auth=(self.client_id, self.client_secret), timeout=30)
         r.raise_for_status()
         data = r.json()
         self._token = data["access_token"]
-        self._token_exp = time.time() + data.get("expires_in", 3600)
+        self._token_expiry = time.time() + data.get("expires_in", 3600)
         return self._token
 
     def query(self, gql, variables=None):
-        r = requests.post(
-            API_URL,
-            json={"query": gql, "variables": variables or {}},
-            headers={"Authorization": f"Bearer {self._auth()}"},
-            timeout=60,
-        )
+        r = requests.post(API_URL, json={"query": gql, "variables": variables or {}},
+                          headers={"Authorization": f"Bearer {self._auth()}"}, timeout=60)
         r.raise_for_status()
         payload = r.json()
         if payload.get("errors"):
             raise RuntimeError(payload["errors"])
         return payload["data"]
 
-    # --- Référentiel -----------------------------------------------------
-
     def zones(self):
-        """Tous les contenus (zones) avec leurs boss."""
+        """Every zone (raid tier, ultimate, trial group...) with its fights."""
         data = self.query("""
-            { worldData { zones {
-                id name frozen
-                expansion { id name }
-                encounters { id name }
-            } } }""")
+            { worldData { zones { id name expansion { id name } encounters { id name } } } }""")
         return data["worldData"]["zones"]
 
     def zone(self, zone_id):
         data = self.query("""
-            query($id: Int!) { worldData { zone(id: $id) {
-                id name expansion { name } encounters { id name }
-            } } }""", {"id": zone_id})
+            query($id: Int!) { worldData { zone(id: $id) { id name encounters { id name } } } }""",
+                          {"id": zone_id})
         return data["worldData"]["zone"]
 
-    def guild(self, guild_id=None, name=None, server=None, region=None):
-        if guild_id:
-            args, variables = "id: $id", {"id": guild_id}
-            sig = "$id: Int"
-        else:
-            args = "name: $name, serverSlug: $server, serverRegion: $region"
-            variables = {"name": name, "server": server, "region": region}
-            sig = "$name: String, $server: String, $region: String"
-        data = self.query(f"""
-            query({sig}) {{ guildData {{ guild({args}) {{
-                id name type server {{ name }} tags {{ id name }}
-                statics {{ id name server {{ name }} }}
-            }} }} }}""", variables)
+    def static(self, static_id):
+        """A static is an FFLogs guild of type 1; its tags are its raid teams."""
+        data = self.query("""
+            query($id: Int!) { guildData { guild(id: $id) {
+                id name server { name } tags { id name }
+            } } }""", {"id": static_id})
         return data["guildData"]["guild"]
 
-    # --- Rapports ------------------------------------------------------------
-
-    def report_list(self, guild_id, zone_id, tag_id=None, max_pages=20):
-        """Liste (code, startTime, endTime) des rapports du groupe pour la zone.
-        guild_id peut être une Free Company ou directement un static."""
-        out, page = [], 1
-        while page <= max_pages:
+    def report_list(self, static_id, zone_id, raid_team_id=None):
+        """Code, start and end time of every report of the static for a zone."""
+        reports, page = [], 1
+        while True:
             data = self.query("""
                 query($g: Int, $t: Int, $z: Int, $p: Int) { reportData {
                     reports(guildID: $g, guildTagID: $t, zoneID: $z, limit: 100, page: $p) {
                         has_more_pages
                         data { code startTime endTime }
                     }
-                } }""", {"g": guild_id, "t": tag_id, "z": zone_id, "p": page})
-            reports = data["reportData"]["reports"]
-            out.extend(reports["data"])
-            if not reports["has_more_pages"]:
-                break
+                } }""", {"g": static_id, "t": raid_team_id, "z": zone_id, "p": page})
+            result = data["reportData"]["reports"]
+            reports.extend(result["data"])
+            if not result["has_more_pages"]:
+                return reports
             page += 1
-        return out
 
     def report_fights(self, codes):
-        """Combats de plusieurs rapports en une requête (alias GraphQL)."""
+        """Fights and phase definitions of several reports, in a single query (GraphQL aliases)."""
         if not codes:
             return {}
-        parts = []
-        for i, code in enumerate(codes):
-            parts.append(f"""
-                r{i}: report(code: "{code}", allowUnlisted: true) {{
-                    code startTime
-                    phases {{ encounterID phases {{ id name isIntermission }} }}
-                    fights {{
-                        id startTime encounterID difficulty kill
-                        fightPercentage bossPercentage
-                        lastPhase lastPhaseAsAbsoluteIndex lastPhaseIsIntermission
-                    }}
-                }}""")
+        parts = [f"""
+            r{i}: report(code: "{code}", allowUnlisted: true) {{
+                code startTime
+                phases {{ encounterID phases {{ id name isIntermission }} }}
+                fights {{
+                    startTime encounterID difficulty kill fightPercentage bossPercentage
+                    lastPhase lastPhaseAsAbsoluteIndex lastPhaseIsIntermission
+                }}
+            }}""" for i, code in enumerate(codes)]
         data = self.query("{ reportData {" + "".join(parts) + "} }")
-        return {v["code"]: v for v in data["reportData"].values() if v}
+        return {report["code"]: report for report in data["reportData"].values() if report}
