@@ -1,8 +1,8 @@
 """Draws the progression image (PNG, 850 x 450, the size of the background images).
 
 Top left:     fight name.
-Bottom left:  best % (large), current phase if any, then "N pulls".
-Bottom right: raid -> X/Y (large); ultimate -> "Pulls:" and the pull on which each phase
+Bottom left:  best % (large), current phase (ultimates only), then "N pulls".
+Bottom right: raid -> X/Y; ultimate -> "Pulls:" and the pull on which each phase
               was first cleared (P1: 156, P2: 824...).
 """
 import sys
@@ -11,7 +11,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 WIDTH, HEIGHT = 850, 450
-MARGIN = 26
+MARGIN = 40
 TITLE_SIZE, BIG_SIZE, SMALL_SIZE = 38, 68, 22
 PHASE_SIZE = BIG_SIZE * 2 // 3      # "Phase X": two thirds of the best %
 PULLS_SIZE = BIG_SIZE // 2          # "N pulls": half of the best %
@@ -91,7 +91,7 @@ def render(view, out_path, background_image=None):
     outlined_text(draw, (MARGIN, y), f"{pulls} pull{'s' if pulls != 1 else ''}",
                   font(PULLS_SIZE), GREY, anchor="ls")
     y -= PULLS_SIZE + 12
-    if view["phase"] and not cleared:
+    if view["mode"] == "ultimate" and not cleared:      # raids never show their phase
         outlined_text(draw, (MARGIN, y), f"Phase {view['phase']}", font(PHASE_SIZE), anchor="ls")
         y -= PHASE_SIZE + 10
     if cleared:
@@ -113,8 +113,8 @@ def render(view, out_path, background_image=None):
             outlined_text(draw, (right, y), line, font(SMALL_SIZE), GREY, anchor="rs")
             y -= SMALL_SIZE + 6
     else:
-        outlined_text(draw, (right, HEIGHT - MARGIN + 6), f"{view['done']}/{view['total']}",
-                      font(BIG_SIZE), GREEN if cleared else WHITE, anchor="rs")
+        outlined_text(draw, (right, HEIGHT - MARGIN + 4), f"{view['done']}/{view['total']}",
+                      font(PHASE_SIZE), GREEN if cleared else WHITE, anchor="rs")
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     image.convert("RGB").save(out_path, "PNG", optimize=True)

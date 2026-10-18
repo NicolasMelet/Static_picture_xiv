@@ -20,7 +20,7 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
    - in the background, your image for the current boss or phase (see "Background images");
    - top left, the name of the current boss (raid) or of the ultimate;
    - bottom left, in large type, the best percentage reached on the current boss / phase, then
-     the current phase (ultimates, and the last savage boss) and the number of pulls (on the
+     the current phase (ultimates only) and the number of pulls (on the
      current boss for a raid, in total for an ultimate);
    - bottom right, for a raid: the progression `X/Y`. In savage, the last fight has two phases
      and counts twice: a 4-fight Arcadion tier is counted out of 5, and reaching phase 2 of the
