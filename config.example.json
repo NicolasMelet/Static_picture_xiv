@@ -15,10 +15,6 @@
   },
   "poll": {
     "active_seconds": 300,
-    "process_check_seconds": 30,
-    "process_names": [
-      "Archon.exe",
-      "Advanced Combat Tool.exe"
-    ]
+    "process_check_seconds": 30
   }
 }

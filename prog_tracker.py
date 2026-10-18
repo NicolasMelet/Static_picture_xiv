@@ -180,11 +180,16 @@ def running_process_names():
         kernel32.CloseHandle(snapshot)
 
 
-def any_process_running(names):
+# A process counts as an uploader when its name contains one of these words.
+UPLOADER_KEYWORDS = ("archon", "advanced combat tracker", "ff logs uploader")
+
+
+def uploader_processes():
+    """Names of the running uploader processes (Archon, ACT, FF Logs Uploader)."""
     if os.name != "nt":
-        return False
-    running = running_process_names()
-    return any(name.lower() in running for name in names)
+        return []
+    return sorted(name for name in running_process_names()
+                  if any(word in name for word in UPLOADER_KEYWORDS))
 
 
 # --- Contents -----------------------------------------------------------------------
@@ -313,16 +318,18 @@ class Tracker:
         poll = self.cfg.get("poll", {})
         interval = poll.get("active_seconds", 300)
         check_every = poll.get("process_check_seconds", 30)
-        names = poll.get("process_names", ["Archon.exe", "Advanced Combat Tool.exe"])
         was_running, last_update = False, 0.0
+        log.info("Watching for processes named like %s", ", ".join(UPLOADER_KEYWORDS))
         while not self.stop.is_set():
             force, self.force = self.force, False
             try:
-                running = any_process_running(names)
+                found = uploader_processes()
+                running = bool(found)
                 due = running and time.monotonic() - last_update >= interval
                 closed = was_running and not running
                 if running and not was_running:
-                    log.info("Archon/ACT detected: FFLogs checked every %d s", interval)
+                    log.info("Archon/ACT detected (%s): FFLogs checked every %d s",
+                             ", ".join(found), interval)
                 if force or due or closed:
                     if closed:
                         log.info("Archon/ACT closed: last check")
@@ -467,7 +474,11 @@ def selftest():
         (DATA / "selftest.txt").write_text(          # read by the build (no console)
             f"{len(names)} processes listed in {elapsed:.1f} ms\n", encoding="utf-8")
         assert own.lower() in names, f"{own} missing from the process list"
-        assert any_process_running([own]) and not any_process_running(["missing-xyz.exe"])
+        assert isinstance(uploader_processes(), list)
+    log.info("Selftest log line")                    # the log file must be written
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+    assert "Selftest log line" in (DATA / "prog_tracker.log").read_text(encoding="utf-8")
     return 0
 
 
@@ -485,6 +496,7 @@ def main():
             traceback.print_exc()
             (DATA / "selftest-error.txt").write_text(traceback.format_exc(), encoding="utf-8")
             sys.exit(1)
+    log.info("Prog FFLogs started (settings and log in %s)", DATA)
     if first_run():
         return
     load_env()

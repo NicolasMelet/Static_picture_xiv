@@ -28,7 +28,9 @@ def compute(zone, reports, difficulty=None):
             if fight and (single or not difficulty or pull.get("difficulty") == difficulty):
                 fight["pulls"].append(pull)
 
-    if single and len(real_phases(fights[0])) > 1:
+    # Ultimate: one fight split into phases. Before the first log FFLogs gives no phase
+    # definitions, so the zone name ("... (Ultimate)", "Ultimates (Legacy)") decides.
+    if single and (len(real_phases(fights[0])) > 1 or "ultimate" in zone["name"].lower()):
         return _ultimate(fights[0])
     return _raid(fights)
 
@@ -114,7 +116,7 @@ def _ultimate(fight):
         if pct is not None and pct < best.get(reached, 101):
             best[reached] = pct
 
-    cleared = len(first_clear) >= total
+    cleared = any(p.get("kill") for p in fight["pulls"])
     current = total if cleared else len(first_clear) + 1
     return {
         "mode": "ultimate",

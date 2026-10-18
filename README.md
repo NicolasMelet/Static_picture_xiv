@@ -81,7 +81,7 @@ GitHub repository, which only holds the empty template `.env.example`.
 | `github.repo` | `NicolasMelet/Static_picture_xiv` |
 | `github.min_publish_seconds` | Minimum delay between two publications (default 600 s) |
 | `autostart` | `true`: registers itself to start with Windows on first launch |
-| `poll.*` | Archon/ACT process names, FFLogs query interval (300 s) and process check interval (30 s) |
+| `poll.*` | FFLogs query interval while Archon/ACT runs (300 s) and process check interval (30 s) |
 
 To find the IDs (the static's raid teams, every `zone_id` and `encounter_id`): icon menu →
 **Find IDs (static, contents)**, or `ProgFFLogs.exe --setup`. The result opens in Notepad.
@@ -96,10 +96,13 @@ Manual test (renders and publishes once): `ProgFFLogs.exe --once`.
 The log is `%APPDATA%\ProgFFLogs\prog_tracker.log` (icon menu → **Open settings folder**). Open
 it with Notepad and reopen it to see new lines.
 
-- **Archon sync**: start Archon (or ACT). Within 30 s the log shows
-  `Archon/ACT detected: FFLogs checked every 300 s`, then every 5 minutes either
+- **Archon sync**: the log starts with `Prog FFLogs started` and `Watching for processes named
+  like archon, ...`. Start Archon (or ACT): within 30 s the log shows
+  `Archon/ACT detected (<process name>): FFLogs checked every 300 s`, then every 5 minutes either
   `No new log (N reports)` or `N reports (M new/updated)`. Close Archon: `Archon/ACT closed: last
-  check` appears within 30 s, and no more FFLogs lines after that.
+  check` appears within 30 s, and no more FFLogs lines after that. A process counts when its name
+  contains "archon", "advanced combat tracker" or "ff logs uploader" (Task Manager → Details
+  shows the names).
 - **Progression update**: upload a log with Archon on the tracked content (or pick a content that
   already has logs in the **Content** menu, which updates at once). The log then shows
   `N reports (1 new/updated)`, `Background: ...` and `Image published: ...` (or
