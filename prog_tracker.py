@@ -21,7 +21,7 @@ import webbrowser
 from pathlib import Path
 
 from fflogs import FFLogs
-from images import create_folders, ensure_fight_folder, load_background
+from images import background_path, create_folders, ensure_fight_folder, load_background
 from progress import compute
 from publisher import GitHubPages
 from render import render
@@ -281,20 +281,41 @@ class Tracker:
 
         for fight in view["fights"]:
             ensure_fight_folder(USER_IMAGES, zone["name"], fight["name"])
-        image, path = load_background(view["title"], zone["name"], view["phase"],
+        shown = {k: v for k, v in view.items() if k != "fights"}
+        self.state.update(signature=signature, view=shown, zone_name=zone["name"])
+        self.redraw(force=force)
+
+    def image_digest(self):
+        """Fingerprint of what the image shows: the last computed view and its background file
+        (path and modification time, so adding or replacing an image changes it)."""
+        view = self.state["view"]
+        path = background_path(view["title"], self.state["zone_name"], view["phase"],
+                               view["mode"] == "ultimate", USER_IMAGES, BUNDLED_IMAGES)
+        background = f"{path}:{path.stat().st_mtime if path else ''}"
+        return hashlib.sha1(json.dumps([view, background], sort_keys=True).encode()).hexdigest()
+
+    def redraw(self, force=False):
+        """Renders the image from the last computed view (no FFLogs call) when the view or its
+        background changed, and queues it for publishing."""
+        view = self.state.get("view")
+        if not view:
+            return
+        digest = self.image_digest()
+        if not force and digest == self.state.get("digest"):
+            log.info("Image unchanged, nothing to publish")
+            return
+        image, path = load_background(view["title"], self.state["zone_name"], view["phase"],
                                       view["mode"] == "ultimate", USER_IMAGES, BUNDLED_IMAGES)
         log.info("Background: %s", path)
         render(view, OUTPUT, image)
-
-        shown = {k: v for k, v in view.items() if k != "fights"}
-        digest = hashlib.sha1(json.dumps(shown, sort_keys=True).encode()).hexdigest()
-        if force or digest != self.state.get("digest"):
-            self.state["pending"] = f"Prog {view['title']}: {view['done']}/{view['total']}"
-        else:
-            log.info("Progression unchanged, nothing to publish")
-        self.state.update(signature=signature, digest=digest)
+        self.state.update(digest=digest,
+                          pending=f"Prog {view['title']}: {view['done']}/{view['total']}")
         self.save_state()
         self.publish_if_due()
+
+    def background_changed(self):
+        """True when an image was added, replaced or removed for the current fight/phase."""
+        return bool(self.state.get("view")) and self.image_digest() != self.state.get("digest")
 
     def publish_if_due(self):
         """Publishes the pending image, at most once every `min_publish_seconds` (GitHub Pages
@@ -335,6 +356,9 @@ class Tracker:
                         log.info("Archon/ACT closed: last check")
                     last_update = time.monotonic()
                     self.update(force=force)
+                elif self.background_changed():
+                    log.info("Background image changed: redrawing without FFLogs")
+                    self.redraw()
                 else:
                     self.publish_if_due()
                 was_running = running
