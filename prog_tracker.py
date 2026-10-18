@@ -282,7 +282,8 @@ class Tracker:
         for fight in view["fights"]:
             ensure_fight_folder(USER_IMAGES, zone["name"], fight["name"])
         shown = {k: v for k, v in view.items() if k != "fights"}
-        self.state.update(signature=signature, view=shown, zone_name=zone["name"])
+        self.state.update(signature=signature, view=shown, zone_name=zone["name"],
+                          content=[zone_id, encounter_id])
         self.redraw(force=force)
 
     def image_digest(self):
@@ -313,9 +314,12 @@ class Tracker:
         self.save_state()
         self.publish_if_due()
 
-    def background_changed(self):
-        """True when an image was added, replaced or removed for the current fight/phase."""
-        return bool(self.state.get("view")) and self.image_digest() != self.state.get("digest")
+    def redraw_at_startup(self):
+        """At launch, picks up background images added since the last run (no FFLogs call).
+        Selecting a content in the menu runs a full update instead."""
+        content = [self.cfg["zone_id"], self.cfg.get("encounter_id")]
+        if self.state.get("content") == content:
+            self.redraw()
 
     def publish_if_due(self):
         """Publishes the pending image, at most once every `min_publish_seconds` (GitHub Pages
@@ -356,9 +360,6 @@ class Tracker:
                         log.info("Archon/ACT closed: last check")
                     last_update = time.monotonic()
                     self.update(force=force)
-                elif self.background_changed():
-                    log.info("Background image changed: redrawing without FFLogs")
-                    self.redraw()
                 else:
                     self.publish_if_due()
                 was_running = running
@@ -543,6 +544,7 @@ def main():
         set_autostart(True)              # only once: the user can turn it off afterwards
         tracker.state["autostart_set"] = True
         tracker.save_state()
+    tracker.redraw_at_startup()
     run_tray(tracker)
 
 

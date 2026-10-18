@@ -182,8 +182,9 @@ Which image is used:
 - **Bundled images**: images placed in the repository's `images/` folder are built into the
   executable and are used when you have none for that fight.
 
-A new or replaced image is picked up within 30 seconds, even without any new log on FFLogs (the
-image is redrawn locally, without calling FFLogs). If an image is not picked up, the log shows the
+A new or replaced image is picked up when the program starts (for the selected content, redrawn
+locally without calling FFLogs) or when you select a content in the **Content** menu, even if
+there is no new log on FFLogs. If an image is not picked up, the log shows the
 background used ("Background: ...").
 
 **Legacy ultimates and extremes**: FFLogs groups several fights in a single zone. In the
