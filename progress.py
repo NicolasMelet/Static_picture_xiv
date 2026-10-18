@@ -29,8 +29,10 @@ def compute(zone, reports, difficulty=None):
                 fight["pulls"].append(pull)
 
     # Ultimate: one fight split into phases. Before the first log FFLogs gives no phase
-    # definitions, so the zone name ("... (Ultimate)", "Ultimates (Legacy)") decides.
-    if single and (len(real_phases(fights[0])) > 1 or "ultimate" in zone["name"].lower()):
+    # definitions, so the zone decides: an ultimate has its own zone named after the fight
+    # ("Futures Rewritten") or is picked in an "Ultimates (Legacy)" zone.
+    if single and (len(real_phases(fights[0])) > 1 or "ultimate" in zone["name"].lower()
+                   or zone["name"] == fights[0]["name"]):
         return _ultimate(fights[0])
     return _raid(fights)
 

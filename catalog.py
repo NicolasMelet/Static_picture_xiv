@@ -4,7 +4,7 @@ Naming convention (folders and files): lowercase, no spaces, no accents.
   - words are joined with "-":           futures-rewritten, aac-heavyweight
   - "_" separates prefixes from the name: <order>_<name> or <code>_<name>
   - the part after the last "_" is the fight's FFLogs name: it identifies the folder
-  - phase images are files named <anything>-p<n>: fru-p1.png, lindwurm-p2.jpg
+  - phase images are files named <anything>-p<n>: fru-p1.png, howling-blade-p2.jpg
 """
 
 ULTIMATES = "1_ultimates"
@@ -16,7 +16,7 @@ OTHER = "4_other-content"     # created by the program for fights missing from t
 FIGHTS = {
     ULTIMATES: [
         "1_ucob_the-unending-coil-of-bahamut",
-        "2_uwu_the-weapons-refrain-ultima-weapon",
+        "2_uwu_the-weapons-refrain",
         "3_tea_the-epic-of-alexander",
         "4_dsr_dragonsongs-reprise",
         "5_top_the-omega-protocol",
@@ -26,7 +26,7 @@ FIGHTS = {
     f"{SAVAGE}/2_heavensward/1_alexander-gordias": [
         "a1s_oppressor", "a2s_cuff-of-the-father", "a3s_living-liquid", "a4s_the-manipulator"],
     f"{SAVAGE}/2_heavensward/2_alexander-midas": [
-        "a5s_ratfinx-twinkledinks", "a6s_vortexer", "a7s_quickthinx-allthoughts",
+        "a5s_ratfinx-twinkledinks", "a6s_the-cuff-of-the-son", "a7s_quickthinx-allthoughts",
         "a8s_brute-justice"],
     f"{SAVAGE}/2_heavensward/3_alexander-the-creator": [
         "a9s_refurbisher-0", "a10s_lamebrix-strikebocks", "a11s_cruise-chaser",
@@ -53,7 +53,7 @@ FIGHTS = {
     f"{SAVAGE}/5_endwalker/2_abyssos": [
         "p5s_proto-carbuncle", "p6s_hegemone", "p7s_agdistis",
         "p8s-1_hephaistos", "p8s-2_hephaistos-ii"],
-    f"{SAVAGE}/5_endwalker/3_anabaseis": [
+    f"{SAVAGE}/5_endwalker/3_anabaseios": [
         "p9s_kokytos", "p10s_pandaemonium", "p11s_themis",
         "p12s-1_athena", "p12s-2_pallas-athena"],
     f"{SAVAGE}/6_dawntrail/1_aac-light-heavyweight": [
@@ -61,10 +61,8 @@ FIGHTS = {
     f"{SAVAGE}/6_dawntrail/2_aac-cruiserweight": [
         "m5s_dancing-green", "m6s_sugar-riot", "m7s_brute-abombinator", "m8s_howling-blade"],
     f"{SAVAGE}/6_dawntrail/3_aac-heavyweight": [
-        "m9s_vamp-fatale", "m10s_red-hot-and-deep-blue", "m11s_the-tyrant", "m12s_lindwurm"],
-    f"{EXTREMES}/1_a-realm-reborn": [
-        "ex1_ifrit", "ex2_garuda", "ex3_titan", "ex4_leviathan", "ex5_ramuh",
-        "ex6_good-king-moggle-mog-xii", "ex7_shiva", "ex8_ultima-weapon"],
+        "m9s_vamp-fatale", "m10s_red-hot-and-deep-blue", "m11s_the-tyrant",
+        "m12s-1_lindwurm", "m12s-2_lindwurm-ii"],
     f"{EXTREMES}/2_heavensward": [
         "ex1_bismarck", "ex2_ravana", "ex3_thordan", "ex4_sephirot", "ex5_nidhogg",
         "ex6_sophia", "ex7_zurvan"],
@@ -72,13 +70,15 @@ FIGHTS = {
         "ex1_susano", "ex2_lakshmi", "ex3_shinryu", "ex4_byakko", "ex5_tsukuyomi",
         "ex6_suzaku", "ex7_seiryu"],
     f"{EXTREMES}/4_shadowbringers": [
-        "ex1_titania", "ex2_innocence", "ex3_hades", "ex4_ruby-weapon", "ex5_varis-yae-galvus",
-        "ex6_warrior-of-light", "ex7_emerald-weapon", "ex8_diamond-weapon"],
+        "ex1_titania", "ex2_innocence", "ex3_hades", "ex4-1_the-ruby-weapon-i",
+        "ex4-2_the-ruby-weapon-ii", "ex5_varis-yae-galvus", "ex6_warrior-of-light",
+        "ex7-1_the-emerald-weapon-i", "ex7-2_the-emerald-weapon-ii", "ex8_the-diamond-weapon"],
     f"{EXTREMES}/5_endwalker": [
         "ex1_zodiark", "ex2_hydaelyn", "ex3_the-endsinger", "ex4_barbariccia", "ex5_rubicante",
         "ex6_golbez", "ex7_zeromus"],
     f"{EXTREMES}/6_dawntrail": [
-        "ex1_valigarmanda", "ex2_zoraal-ja", "ex3_queen-eternal", "ex4_zelenia", "ex5_necron"],
+        "ex1_valigarmanda", "ex2_zoraal-ja", "ex3_queen-eternal", "ex4_zelenia", "ex5_necron",
+        "ex6_guardian-arkveld", "ex7_doomtrain", "ex8_enuo"],
 }
 
 

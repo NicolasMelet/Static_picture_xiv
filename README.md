@@ -22,10 +22,11 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
    - bottom left, in large type, the best percentage reached on the current boss / phase, then
      the current phase (ultimates only) and the number of pulls (on the
      current boss for a raid, in total for an ultimate);
-   - bottom right, for a raid: the progression `X/Y`. In savage, the last fight has two phases
-     and counts twice: a 4-fight Arcadion tier is counted out of 5, and reaching phase 2 of the
-     last boss is worth one point. Pandaemonium tiers, where FFLogs already splits the last boss
-     into two fights, are also counted out of 5;
+   - bottom right, for a raid: the progression `X/Y`. In savage, the last boss has two phases:
+     when FFLogs splits it into two fights (Pandaemonium, AAC Heavyweight: Lindwurm and
+     Lindwurm II) each one counts; when it is a single fight with two phases (AAC
+     Light-heavyweight, AAC Cruiserweight) it counts twice and reaching phase 2 is worth one
+     point. Either way a tier is counted out of 5;
    - bottom right, for an ultimate: `Pulls:` then the pull on which each phase was cleared for
      the first time (e.g. `P1: 156`, `P2: 824`).
 4. If the progression changed, the image is pushed to the repository's `gh-pages` branch (at most
@@ -122,9 +123,9 @@ with `-`, and `_` separates the prefixes (order number, raid code) from the name
 | What | Pattern | Example |
 |---|---|---|
 | Category / expansion / tier | `<order>_<name>` | `2_savage-raids/6_dawntrail/3_aac-heavyweight` |
-| Fight | `<order or code>_<fflogs-name>` | `6_fru_futures-rewritten`, `m12s_lindwurm`, `p4s-1_hesperos` |
-| Phase image | `<anything>-p<n>.<ext>` | `fru-p3.png`, `lindwurm-p2.jpg` |
-| Fight image | any other name | `lindwurm.png` |
+| Fight | `<order or code>_<fflogs-name>` | `6_fru_futures-rewritten`, `m8s_howling-blade`, `m12s-2_lindwurm-ii` |
+| Phase image | `<anything>-p<n>.<ext>` | `fru-p3.png`, `howling-blade-p2.jpg` |
+| Fight image | any other name | `vamp-fatale.png` |
 | Default image | `default.<ext>` at the root | `default.jpg` |
 
 The part after the last `_` of a fight folder is the fight's FFLogs name: it is what the program
@@ -139,12 +140,12 @@ images/
       fatebreaker-p1.png
       usurper-p2.png                   add each phase image when you reach it
   2_savage-raids/
-    6_dawntrail/3_aac-heavyweight/
-      m9s_vamp-fatale/
-        vamp-fatale.png                image of the boss
-      m12s_lindwurm/
-        lindwurm-p1.png                last savage boss: one image per phase
-        lindwurm-p2.png
+    6_dawntrail/2_aac-cruiserweight/
+      m5s_dancing-green/
+        dancing-green.png              image of the boss
+      m8s_howling-blade/
+        howling-blade-p1.png           last boss in two phases: one image per phase
+        howling-blade-p2.png
   3_extremes/
     6_dawntrail/ex1_valigarmanda/
   4_other-content/                     fights missing from the catalog (created automatically)
@@ -156,8 +157,16 @@ images/
 m9s_vamp-fatale/vamp-fatale.png            M9S
 m10s_red-hot-and-deep-blue/red-hot.png     M10S
 m11s_the-tyrant/tyrant.jpg                 M11S
-m12s_lindwurm/lindwurm-p1.png              M12S, phase 1
-m12s_lindwurm/lindwurm-p2.png              M12S, phase 2
+m12s-1_lindwurm/lindwurm.png               M12S, first fight (Lindwurm)
+m12s-2_lindwurm-ii/lindwurm-ii.png         M12S, second fight (Lindwurm II)
+```
+
+**Example: savage boss in two phases (M8S)**, in
+`images/2_savage-raids/6_dawntrail/2_aac-cruiserweight/m8s_howling-blade/`:
+
+```
+howling-blade-p1.png      phase 1
+howling-blade-p2.png      phase 2
 ```
 
 **Example: ultimate (Futures Rewritten)**, in `images/1_ultimates/6_fru_futures-rewritten/`:

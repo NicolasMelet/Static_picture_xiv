@@ -2,8 +2,8 @@
 
 Names follow the convention described in catalog.py (lowercase, "-" between words, "_" before
 the name). A fight's folder is found by its FFLogs name, the part after the last "_"
-("m12s_lindwurm" for Lindwurm), wherever it is. Inside it:
-  - <anything>-p<n>.png is the image of phase n (e.g. fru-p3.png, lindwurm-p2.jpg);
+("m11s_the-tyrant" for The Tyrant), wherever it is. Inside it:
+  - <anything>-p<n>.png is the image of phase n (e.g. fru-p3.png, howling-blade-p2.jpg);
   - any other image is the fight's image.
 Ultimate: the current phase's image, otherwise default (no spoiler for phases not reached yet).
 Raid:     the current phase's image if any, otherwise the fight's image, otherwise default.
@@ -31,10 +31,10 @@ README_TEXT = """prog fflogs - background images
   4_other-content    fights missing from the catalog (created automatically)
 
 Naming convention: lowercase, no spaces, words joined with "-", "_" before the name.
-  - folder:  <order or code>_<fflogs-name>     e.g. 6_fru_futures-rewritten, m12s_lindwurm
+  - folder:  <order or code>_<fflogs-name>     e.g. 6_fru_futures-rewritten, m11s_the-tyrant
              the part after the last "_" is the fight's FFLogs name: keep it
   - files:   <anything>-p<n>.<ext>             image of phase n, e.g. fru-p3.png
-             any other name                    image of the fight, e.g. lindwurm.png
+             any other name                    image of the fight, e.g. tyrant.png
   - extensions: .png, .jpg, .jpeg, .webp
 
 Which image is used:
@@ -108,7 +108,7 @@ def phase_of(path):
 
 def background_path(fight_name, zone_name, phase, ultimate, user_root, bundled_root):
     """Image to use: see the module docstring. The user's images win over the bundled ones."""
-    category = category_of(zone_name)
+    category = catalog.ULTIMATES if ultimate else category_of(zone_name)
     for root in (Path(user_root), Path(bundled_root)):
         folder = find_fight_folder(root, fight_name, category)
         if not folder:

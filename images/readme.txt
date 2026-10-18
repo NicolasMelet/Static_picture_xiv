@@ -7,10 +7,10 @@ prog fflogs - background images
   4_other-content    fights missing from the catalog (created automatically)
 
 Naming convention: lowercase, no spaces, words joined with "-", "_" before the name.
-  - folder:  <order or code>_<fflogs-name>     e.g. 6_fru_futures-rewritten, m12s_lindwurm
+  - folder:  <order or code>_<fflogs-name>     e.g. 6_fru_futures-rewritten, m11s_the-tyrant
              the part after the last "_" is the fight's FFLogs name: keep it
   - files:   <anything>-p<n>.<ext>             image of phase n, e.g. fru-p3.png
-             any other name                    image of the fight, e.g. lindwurm.png
+             any other name                    image of the fight, e.g. tyrant.png
   - extensions: .png, .jpg, .jpeg, .webp
 
 Which image is used:
