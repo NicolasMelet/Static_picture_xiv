@@ -16,8 +16,8 @@ Naming convention: lowercase, no spaces, words joined with "-", "_" before the n
 Which image is used:
   - ultimate: the -p<n> image of the current phase, otherwise default.jpg
     (add the phase images one by one as you reach them: no spoiler)
-  - raid:     the -p<n> image of the current phase if any (last savage boss: -p1 and -p2),
-    otherwise the fight image, otherwise default.jpg
+  - raid:     the fight image, otherwise default.jpg; a boss with FFLogs phase data
+    (M8S Howling Blade) can also have -p1 and -p2 images
   - default.jpg / default.png here, at the root, replaces the bundled kitten
 
 Recommended size: 850 x 450 (or larger with the same ratio); otherwise it is center-cropped.

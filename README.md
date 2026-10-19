@@ -22,11 +22,14 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
    - bottom left, in large type, the best percentage reached on the current boss / phase, then
      the current phase (ultimates only) and the number of pulls (on the
      current boss for a raid, in total for an ultimate);
-   - bottom right, for a raid: the progression `X/Y`. In savage, the last boss has two phases:
-     when FFLogs splits it into two fights (Pandaemonium, AAC Heavyweight: Lindwurm and
-     Lindwurm II) each one counts; when it is a single fight with two phases (AAC
-     Light-heavyweight, AAC Cruiserweight) it counts twice and reaching phase 2 is worth one
-     point. Either way a tier is counted out of 5;
+   - bottom right, for a raid: the progression `X/Y`. A savage tier is always counted out of 5,
+     the last boss having two phases. How FFLogs records that last boss:
+     - two separate fights (Pandaemonium, AAC Heavyweight: Lindwurm and Lindwurm II): each kill
+       counts;
+     - one fight with two phases (AAC Cruiserweight, M8S): reaching phase 2 counts, then the
+       kill;
+     - one fight without phase data (AAC Light-heavyweight, M4S): phase 2 cannot be detected,
+       so the tier goes from 3/5 straight to 5/5 when M4S is killed;
    - bottom right, for an ultimate: `Pulls:` then the pull on which each phase was cleared for
      the first time (e.g. `P1: 156`, `P2: 824`).
 4. If the progression changed, the image is pushed to the repository's `gh-pages` branch (at most
@@ -183,8 +186,9 @@ Which image is used:
 
 - **Ultimate**: the `-p<n>` image of the current phase, otherwise the default image. The number of
   phases of a new ultimate is never spoiled: add each phase image when you reach it.
-- **Raid**: the `-p<n>` image of the current phase if there is one (last savage boss: `-p1` and
-  `-p2`), otherwise the fight image, otherwise the default image.
+- **Raid**: the fight image, otherwise the default image. Only a savage boss that FFLogs
+  records as one fight with two phases (M8S, Howling Blade) also uses `-p1` and `-p2` images.
+  M4S has no phase data on FFLogs and M12S is two separate fights, so they use plain images.
 - **Missing folder**: a fight without a folder (content released after this version) gets one in
   `4_other-content/<zone>/<fight>` the first time it is tracked.
 - **Recommended size**: 850 × 450 or larger with the same ratio (center-cropped otherwise).
