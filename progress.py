@@ -5,6 +5,32 @@ Ultimate: current phase, pull on which each phase was first cleared, total pulls
           best % in the current phase.
 """
 
+DUPLICATE_WINDOW_MS = 20_000
+
+
+def _absolute_pulls(reports, by_id, single, difficulty):
+    """All matching pulls of every report, sorted by absolute start time."""
+    pulls = []
+    for report in reports:
+        base = report.get("startTime") or 0
+        for pull in report.get("fights") or []:
+            fight = by_id.get(pull["encounterID"])
+            if fight and (single or not difficulty or pull.get("difficulty") == difficulty):
+                pulls.append((base + (pull.get("startTime") or 0), fight, pull))
+    pulls.sort(key=lambda item: item[0])
+    return pulls
+
+
+def _better(a, b):
+    """Of two copies of the same pull, keeps the most informative one."""
+    if bool(a.get("kill")) != bool(b.get("kill")):
+        return a if a.get("kill") else b
+    pa, pb = a.get("fightPercentage"), b.get("fightPercentage")
+    if pa is None:
+        return b
+    if pb is None:
+        return a
+    return a if pa <= pb else b
 
 def compute(zone, reports, difficulty=None):
     """
