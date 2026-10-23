@@ -44,15 +44,21 @@ def compute(zone, reports, difficulty=None):
     single = len(fights) == 1
 
     # Pulls in chronological order: report start time, then pull start time.
-    for report in sorted(reports, key=lambda r: r.get("startTime") or 0):
+        for report in sorted(reports, key=lambda r: r.get("startTime") or 0):
         for definition in report.get("phases") or []:
             fight = by_id.get(definition["encounterID"])
             if fight and len(definition.get("phases") or []) > len(fight["phases"]):
                 fight["phases"] = definition["phases"]
-        for pull in sorted(report.get("fights") or [], key=lambda p: p.get("startTime") or 0):
-            fight = by_id.get(pull["encounterID"])
-            if fight and (single or not difficulty or pull.get("difficulty") == difficulty):
-                fight["pulls"].append(pull)
+
+    # Same pull uploaded in several reports (two uploaders, live log + reupload): keep one copy.
+    last = {}  # encounter id -> (absolute start, index in fight["pulls"])
+    for start, fight, pull in _absolute_pulls(reports, by_id, single, difficulty):
+        prev = last.get(fight["id"])
+        if prev and start - prev[0] <= DUPLICATE_WINDOW_MS:
+            fight["pulls"][prev[1]] = _better(fight["pulls"][prev[1]], pull)
+            continue
+        fight["pulls"].append(pull)
+        last[fight["id"]] = (start, len(fight["pulls"]) - 1)
 
     # Ultimate: one fight split into phases. Before the first log FFLogs gives no phase
     # definitions, so the zone decides: an ultimate has its own zone named after the fight
