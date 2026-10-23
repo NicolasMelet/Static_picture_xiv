@@ -44,7 +44,7 @@ def compute(zone, reports, difficulty=None):
     single = len(fights) == 1
 
     # Pulls in chronological order: report start time, then pull start time.
-        for report in sorted(reports, key=lambda r: r.get("startTime") or 0):
+    for report in sorted(reports, key=lambda r: r.get("startTime") or 0):
         for definition in report.get("phases") or []:
             fight = by_id.get(definition["encounterID"])
             if fight and len(definition.get("phases") or []) > len(fight["phases"]):
