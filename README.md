@@ -1,8 +1,8 @@
 # Prog FFLogs → fixed-link image
 
-A small Windows program that watches the logs the **Archon** app uploads to FFLogs, computes the
-static's progression (best % and bosses/phases cleared) and publishes a PNG image on
-**GitHub Pages**, for free, at an address that never changes:
+A small Windows program that reads the static's logs on FFLogs when you ask it to, computes the
+progression (best % and bosses/phases cleared) and publishes a PNG image on **GitHub Pages**, for
+free, at an address that never changes:
 
 ```
 https://nicolasmelet.github.io/Static_picture_xiv/prog.png
@@ -11,12 +11,12 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
 ## How it works
 
 1. When Windows starts, `ProgFFLogs.exe` runs in the background (orange icon in the taskbar).
-2. Every 5 minutes while Archon (or ACT) is open, it asks the FFLogs API for the static's reports
-   on the selected content, then one last time when they close. While neither Archon nor ACT is
-   running, FFLogs is never queried (only the Windows process list is checked every 30 s). The
-   **Update now** menu item and changing the content query FFLogs immediately.
-3. When there is a new report (or a live report has grown), it downloads the fights, computes the
-   progression and renders the image (850 × 450, the size of the background images):
+   It does nothing on its own: there is no automatic update.
+2. The image is updated when you click **Update now** in the icon menu, or when you pick another
+   content in the **Content** menu.
+3. The program then asks the FFLogs API for the static's reports on the selected content,
+   downloads the fights of the new reports, computes the progression and renders the image
+   (850 × 450, the size of the background images):
    - in the background, your image for the current boss or phase (see "Background images");
    - top left, the name of the current boss (raid) or of the ultimate;
    - bottom left, in large type, the best percentage reached on the current boss / phase, then
@@ -25,18 +25,15 @@ https://nicolasmelet.github.io/Static_picture_xiv/prog.png
    - bottom right, for a raid: the progression `X/Y`. A savage tier is always counted out of 5,
      the last boss having two phases. How FFLogs records that last boss:
      - two separate fights (Pandaemonium, AAC Heavyweight: Lindwurm and Lindwurm II): each kill
-       counts;
+       counts, and a tier of 5 fights is never counted out of more than 5;
      - one fight with two phases (AAC Cruiserweight, M8S): reaching phase 2 counts, then the
        kill;
      - one fight without phase data (AAC Light-heavyweight, M4S): phase 2 cannot be detected,
        so the tier goes from 3/5 straight to 5/5 when M4S is killed;
    - bottom right, for an ultimate: `Pulls:` then the pull on which each phase was cleared for
      the first time (e.g. `P1: 156`, `P2: 824`).
-4. If the progression changed, the image is pushed to the repository's `gh-pages` branch (at most
-   once every 10 minutes, see below). GitHub Pages serves it at the same address.
-
-The icon menu lets you **change the content** (e.g. *AAC Heavyweight*), force an update and open
-the image.
+4. The image is pushed to the repository's `gh-pages` branch. GitHub Pages serves it at the same
+   address. A notification tells you when it is published (or that the update failed).
 
 ## Installation
 
@@ -83,9 +80,7 @@ GitHub repository, which only holds the empty template `.env.example`.
 | `fflogs.static_id` | Wipe Lotus static ID: `141085` (the number in <https://fr.fflogs.com/guild/id/141085>), already filled in |
 | `fflogs.raid_team_id` | Optional: only track one raid team of the static, `null` = the whole static |
 | `github.repo` | `NicolasMelet/Static_picture_xiv` |
-| `github.min_publish_seconds` | Minimum delay between two publications (default 600 s) |
 | `autostart` | `true`: registers itself to start with Windows on first launch |
-| `poll.*` | FFLogs query interval while Archon/ACT runs (300 s) and process check interval (30 s) |
 
 To find the IDs (the static's raid teams, every `zone_id` and `encounter_id`): icon menu →
 **Find IDs (static, contents)**, or `ProgFFLogs.exe --setup`. The result opens in Notepad.
@@ -100,105 +95,62 @@ Manual test (renders and publishes once): `ProgFFLogs.exe --once`.
 The log is `%APPDATA%\ProgFFLogs\prog_tracker.log` (icon menu → **Open settings folder**). Open
 it with Notepad and reopen it to see new lines.
 
-- **Archon sync**: the log starts with `Prog FFLogs started` and `Watching for processes named
-  like archon, ...`. Start Archon (or ACT): within 30 s the log shows
-  `Archon/ACT detected (<process name>): FFLogs checked every 300 s`, then every 5 minutes either
-  `No new log (N reports)` or `N reports (M new/updated)`. Close Archon: `Archon/ACT closed: last
-  check` appears within 30 s, and no more FFLogs lines after that. A process counts when its name
-  contains "archon", "advanced combat tracker" or "ff logs uploader" (Task Manager → Details
-  shows the names).
-- **Progression update**: upload a log with Archon on the tracked content (or pick a content that
-  already has logs in the **Content** menu, which updates at once). The log then shows
-  `N reports (1 new/updated)`, `Background: ...` and `Image published: ...` (or
-  `Publication postponed by ... s` if an image was published less than 10 minutes ago). Check the
-  result with **Open local image** and, after a minute, **Open online image**.
+Click **Update now**: the log shows `N reports (M new/updated)`, `Background: <image used>` and
+`Image published: ...`, or `Error during the update` followed by the details. Check the result
+with **Open local image** and, after a minute, **Open online image**.
 
 ### Background images
 
 No image is downloaded from FFLogs: the backgrounds are your own images, stored in
-`%APPDATA%\ProgFFLogs\images` (icon menu → **Open images folder**), one folder per fight. The
-folders are created when the program starts; they are also visible in the repository's
-[`images/`](images) folder.
+`%APPDATA%\ProgFFLogs\images` (icon menu → **Open images folder**). The rule is
+**one folder = one image**:
 
-**Naming convention** (folders and files): lowercase, no spaces, no accents; words are joined
-with `-`, and `_` separates the prefixes (order number, raid code) from the name.
-
-| What | Pattern | Example |
-|---|---|---|
-| Category / expansion / tier | `<order>_<name>` | `2_savage-raids/6_dawntrail/3_aac-heavyweight` |
-| Fight | `<order or code>_<fflogs-name>` | `6_fru_futures-rewritten`, `m8s_howling-blade`, `m12s-2_lindwurm-ii` |
-| Phase image | `<anything>-p<n>.<ext>` | `fru-p3.png`, `howling-blade-p2.jpg` |
-| Fight image | any other name | `vamp-fatale.png` |
-| Default image | `default.<ext>` at the root | `default.jpg` |
-
-The part after the last `_` of a fight folder is the fight's FFLogs name: it is what the program
-looks for, keep it. Extensions: `.png`, `.jpg`, `.jpeg`, `.webp`.
+- a fight has one folder, and the image you put in it (any name) is its background;
+- a fight with phases has one subfolder per phase inside its folder: `p1`, `p2`, ...;
+- when the folder is empty, the default image is used.
 
 ```
 images/
-  default.jpg                          used when no image fits (the kitten)
+  default.jpg                          used when the folder is empty (the kitten)
   readme.txt                           reminder of these rules
   1_ultimates/
     6_fru_futures-rewritten/
-      fatebreaker-p1.png
-      usurper-p2.png                   add each phase image when you reach it
+      p1/fatebreaker.png               one folder per phase
+      p2/usurper.png
+      p3/                              no image yet: default image
   2_savage-raids/
     6_dawntrail/2_aac-cruiserweight/
-      m5s_dancing-green/
-        dancing-green.png              image of the boss
+      m5s_dancing-green/dancing-green.png
       m8s_howling-blade/
-        howling-blade-p1.png           last boss in two phases: one image per phase
-        howling-blade-p2.png
+        p1/howling-blade.png           one FFLogs fight with two phases
+        p2/wolf.png
+    6_dawntrail/3_aac-heavyweight/
+      m11s_the-tyrant/tyrant.jpg
+      m12s-1_lindwurm/lindwurm.png     M12S phase 1 (FFLogs fight "Lindwurm")
+      m12s-2_lindwurm-ii/lindwurm.png  M12S phase 2 (FFLogs fight "Lindwurm II")
   3_extremes/
     6_dawntrail/ex1_valigarmanda/
   4_other-content/                     fights missing from the catalog (created automatically)
 ```
 
-**Example: savage (AAC Heavyweight)**, in `images/2_savage-raids/6_dawntrail/3_aac-heavyweight/`:
+- **Which fights have phases**: every ultimate, and a savage last boss that FFLogs records as one
+  fight with two phases (M8S, Howling Blade). M12S is two separate FFLogs fights, so it has two
+  folders instead. M4S has no phase data on FFLogs: a single image in its folder.
+- **Phase folders** are numbered like the image ("Phase 3" → `p3`; intermissions do not count).
+  The folder of the current fight or phase is created during the update when it does not exist
+  yet; you can also create `p1`, `p2`, ... yourself beforehand.
+- **Finding the folder**: the end of a fight folder's name, after the last `_`, is the fight's
+  FFLogs name in lowercase with `-` between words (`m11s_the-tyrant` for *The Tyrant*): keep it.
+  The folder can be anywhere under `images/`. A fight without a folder (content released after
+  this version) gets one in `4_other-content/<fight>` the first time it is tracked.
+- **Image**: `.png`, `.jpg`, `.jpeg` or `.webp`. Only one image per folder is expected: the first
+  one in alphabetical order is used. Recommended size: 850 × 450 or larger with the same ratio
+  (center-cropped otherwise).
+- **Default image**: `default.jpg` or `default.png` at the root of your images folder replaces
+  the bundled kitten.
 
-```
-m9s_vamp-fatale/vamp-fatale.png            M9S
-m10s_red-hot-and-deep-blue/red-hot.png     M10S
-m11s_the-tyrant/tyrant.jpg                 M11S
-m12s-1_lindwurm/lindwurm.png               M12S, first fight (Lindwurm)
-m12s-2_lindwurm-ii/lindwurm-ii.png         M12S, second fight (Lindwurm II)
-```
-
-**Example: savage boss in two phases (M8S)**, in
-`images/2_savage-raids/6_dawntrail/2_aac-cruiserweight/m8s_howling-blade/`:
-
-```
-howling-blade-p1.png      phase 1
-howling-blade-p2.png      phase 2
-```
-
-**Example: ultimate (Futures Rewritten)**, in `images/1_ultimates/6_fru_futures-rewritten/`:
-
-```
-fatebreaker-p1.png        phase 1
-usurper-of-frost-p2.png   phase 2
-oracle-p3.png             phase 3   (added when the static reaches phase 3)
-```
-
-While the static is in phase 4 and there is no `-p4` image yet, the default image is shown.
-
-Which image is used:
-
-- **Ultimate**: the `-p<n>` image of the current phase, otherwise the default image. The number of
-  phases of a new ultimate is never spoiled: add each phase image when you reach it.
-- **Raid**: the fight image, otherwise the default image. Only a savage boss that FFLogs
-  records as one fight with two phases (M8S, Howling Blade) also uses `-p1` and `-p2` images.
-  M4S has no phase data on FFLogs and M12S is two separate fights, so they use plain images.
-- **Missing folder**: a fight without a folder (content released after this version) gets one in
-  `4_other-content/<zone>/<fight>` the first time it is tracked.
-- **Recommended size**: 850 × 450 or larger with the same ratio (center-cropped otherwise).
-- **Bundled images**: images placed in the repository's `images/` folder are built into the
-  executable and are used when you have none for that fight.
-
-A new or replaced image is picked up when the program starts (for the selected content, redrawn
-locally without calling FFLogs) or when you select a content in the **Content** menu, even if
-there is no new log on FFLogs. If an image is not picked up, the log shows the
-background used ("Background: ...").
+After adding or replacing an image, click **Update now**. The log shows the image used
+("Background: ...").
 
 **Legacy ultimates and extremes**: FFLogs groups several fights in a single zone. In the
 **Content** menu, these zones open a sub-menu to choose the tracked fight
@@ -246,9 +198,8 @@ image (a commit on `gh-pages`), GitHub redeploys the site.
 - **Cache**: GitHub's CDN caches the image for up to ~10 minutes. Discord also keeps images it
   has already shown for a long time; adding a parameter to the link (`prog.png?v=2`) forces a
   reload.
-- **Deployment limit**: GitHub recommends at most ~10 deployments per hour. The program therefore
-  publishes at most once every 10 minutes; a pending image is published as soon as the delay has
-  passed (without querying FFLogs again).
+- **Deployment limit**: GitHub recommends at most ~10 deployments per hour. Every **Update now**
+  is one deployment: avoid clicking it more than a few times per hour.
 - **Everything is public**: with a free account, Pages requires a public repository. The code and
   the image are visible to everyone; the keys stay in `.env` on your PC.
 - **History**: each update adds a commit on `gh-pages` (a few dozen KB). Irrelevant at the scale

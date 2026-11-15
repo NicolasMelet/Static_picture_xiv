@@ -1,7 +1,7 @@
 """
 FFLogs progression tracker -> image hosted on GitHub Pages.
 
-  ProgFFLogs.exe            runs the tracker with a taskbar icon
+  ProgFFLogs.exe            taskbar icon; the image is updated from its menu ("Update now")
   ProgFFLogs.exe --once     renders and publishes the image once, then exits
   ProgFFLogs.exe --setup    lists the static's raid teams and every content with its fights
   ProgFFLogs.exe --selftest checks that the executable works (used by the build)
@@ -9,19 +9,19 @@ FFLogs progression tracker -> image hosted on GitHub Pages.
 (In development: python prog_tracker.py ...)
 """
 import argparse
-import hashlib
 import json
 import logging
 import os
 import sys
 import threading
-import time
 import traceback
 import webbrowser
 from pathlib import Path
 
+from PIL import Image
+
 from fflogs import FFLogs
-from images import background_path, create_folders, ensure_fight_folder, load_background
+from images import background, create_folders, fight_folder
 from progress import compute
 from publisher import GitHubPages
 from render import render
@@ -144,54 +144,6 @@ def set_autostart(enabled):
             winreg.DeleteValue(key, APP_NAME)
 
 
-def running_process_names():
-    """Lowercase names of the running Windows processes, through CreateToolhelp32Snapshot:
-    a few milliseconds, without starting an external program."""
-    import ctypes
-    from ctypes import wintypes
-
-    class PROCESSENTRY32W(ctypes.Structure):
-        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
-                    ("th32ProcessID", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_size_t),
-                    ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
-                    ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long),
-                    ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
-
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
-    kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-    kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
-    kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
-    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
-
-    snapshot = kernel32.CreateToolhelp32Snapshot(0x00000002, 0)    # TH32CS_SNAPPROCESS
-    if snapshot in (None, wintypes.HANDLE(-1).value):
-        raise OSError(ctypes.get_last_error(), "CreateToolhelp32Snapshot")
-    try:
-        entry = PROCESSENTRY32W()
-        entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
-        names = set()
-        found = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
-        while found:
-            names.add(entry.szExeFile.lower())
-            found = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
-        return names
-    finally:
-        kernel32.CloseHandle(snapshot)
-
-
-# A process counts as an uploader when its name contains one of these words.
-UPLOADER_KEYWORDS = ("archon", "advanced combat tracker", "ff logs uploader")
-
-
-def uploader_processes():
-    """Names of the running uploader processes (Archon, ACT, FF Logs Uploader)."""
-    if os.name != "nt":
-        return []
-    return sorted(name for name in running_process_names()
-                  if any(word in name for word in UPLOADER_KEYWORDS))
-
-
 # --- Contents -----------------------------------------------------------------------
 
 def is_pick_one(zone):
@@ -233,30 +185,17 @@ class Tracker:
         github = cfg["github"]
         self.pages = GitHubPages(secret("GITHUB_TOKEN"), github["repo"],
                                  github.get("branch", "gh-pages"), github.get("path", "prog.png"))
-        self.state = read_json(STATE, {})
-        self.wake = threading.Event()
-        self.stop = threading.Event()
-        self.force = False
+        self.lock = threading.Lock()            # one update at a time
+        self.notify = log.info                  # replaced by the taskbar icon's notification
 
-    def save_state(self):
-        write_json(STATE, self.state)
-
-    def update(self, force=False):
-        """Fetches the static's reports, renders the image and queues it for publishing.
-        Without force, nothing happens when no report was added or extended."""
+    def update(self):
+        """Fetches the static's reports, renders the image and publishes it."""
         cfg = self.cfg
         zone_id, encounter_id = cfg["zone_id"], cfg.get("encounter_id")
-        static_id, raid_team_id = cfg["fflogs"]["static_id"], cfg["fflogs"].get("raid_team_id")
+        reports = self.api.report_list(cfg["fflogs"]["static_id"], zone_id,
+                                       cfg["fflogs"].get("raid_team_id"))
 
-        reports = self.api.report_list(static_id, zone_id, raid_team_id)
-        signature = hashlib.sha1(json.dumps(
-            [zone_id, encounter_id, raid_team_id, sorted((r["code"], r["endTime"]) for r in reports)]
-        ).encode()).hexdigest()
-        if not force and signature == self.state.get("signature"):
-            log.info("No new log (%d reports)", len(reports))
-            return
-
-        # Only download reports that are new or still growing (live logging).
+        # Only download reports that are new or have grown since the last update.
         loaded, to_fetch = [], []
         for report in reports:
             cached = read_json(CACHE / "fights" / f"{report['code']}.json")
@@ -279,98 +218,26 @@ class Tracker:
             zone["encounters"] = [e for e in zone["encounters"] if e["id"] == encounter_id]
         view = compute(zone, loaded, cfg.get("difficulty"))
 
-        for fight in view["fights"]:
-            ensure_fight_folder(USER_IMAGES, zone["name"], fight["name"])
-        shown = {k: v for k, v in view.items() if k != "fights"}
-        self.state.update(signature=signature, view=shown, zone_name=zone["name"],
-                          content=[zone_id, encounter_id])
-        self.redraw(force=force)
-
-    def image_digest(self):
-        """Fingerprint of what the image shows: the last computed view and its background file
-        (path and modification time, so adding or replacing an image changes it)."""
-        view = self.state["view"]
-        path = background_path(view["title"], self.state["zone_name"], view["phase"],
-                               view["mode"] == "ultimate", USER_IMAGES, BUNDLED_IMAGES)
-        background = f"{path}:{path.stat().st_mtime if path else ''}"
-        return hashlib.sha1(json.dumps([view, background], sort_keys=True).encode()).hexdigest()
-
-    def redraw(self, force=False):
-        """Renders the image from the last computed view (no FFLogs call) when the view or its
-        background changed, and queues it for publishing."""
-        view = self.state.get("view")
-        if not view:
-            return
-        digest = self.image_digest()
-        if not force and digest == self.state.get("digest"):
-            log.info("Image unchanged, nothing to publish")
-            return
-        image, path = load_background(view["title"], self.state["zone_name"], view["phase"],
-                                      view["mode"] == "ultimate", USER_IMAGES, BUNDLED_IMAGES)
-        log.info("Background: %s", path)
-        render(view, OUTPUT, image)
-        self.state.update(digest=digest,
-                          pending=f"Prog {view['title']}: {view['done']}/{view['total']}")
-        self.save_state()
-        self.publish_if_due()
-
-    def redraw_at_startup(self):
-        """At launch, picks up background images added since the last run (no FFLogs call).
-        Selecting a content in the menu runs a full update instead."""
-        content = [self.cfg["zone_id"], self.cfg.get("encounter_id")]
-        if self.state.get("content") == content:
-            self.redraw()
-
-    def publish_if_due(self):
-        """Publishes the pending image, at most once every `min_publish_seconds` (GitHub Pages
-        allows about 10 deployments per hour). Never calls FFLogs."""
-        commit_message = self.state.get("pending")
-        if not commit_message or not OUTPUT.exists():
-            return
-        delay = self.cfg["github"].get("min_publish_seconds", 600)
-        remaining = self.state.get("last_publish", 0) + delay - time.time()
-        if remaining > 0:
-            log.info("Publication postponed by %d s (GitHub Pages limit)", remaining)
-            return
-        log.info("Image published: %s", self.pages.upload(OUTPUT, commit_message))
-        self.state.update(pending=None, last_publish=time.time())
-        self.save_state()
-
-    def loop(self):
-        """FFLogs is only queried while Archon or ACT runs (every 5 min by default), plus once
-        when they close so the last upload is not missed. Otherwise only the local process list
-        is checked."""
-        poll = self.cfg.get("poll", {})
-        interval = poll.get("active_seconds", 300)
-        check_every = poll.get("process_check_seconds", 30)
-        was_running, last_update = False, 0.0
-        log.info("Watching for processes named like %s", ", ".join(UPLOADER_KEYWORDS))
-        while not self.stop.is_set():
-            force, self.force = self.force, False
-            try:
-                found = uploader_processes()
-                running = bool(found)
-                due = running and time.monotonic() - last_update >= interval
-                closed = was_running and not running
-                if running and not was_running:
-                    log.info("Archon/ACT detected (%s): FFLogs checked every %d s",
-                             ", ".join(found), interval)
-                if force or due or closed:
-                    if closed:
-                        log.info("Archon/ACT closed: last check")
-                    last_update = time.monotonic()
-                    self.update(force=force)
-                else:
-                    self.publish_if_due()
-                was_running = running
-            except Exception:
-                log.exception("Error during the update")
-            self.wake.wait(check_every)
-            self.wake.clear()
+        for fight in view["fights"]:            # every fight of the content gets its folder
+            fight_folder(USER_IMAGES, fight["name"])
+        image = background(fight_folder(USER_IMAGES, view["title"], view["phase"]),
+                           USER_IMAGES, BUNDLED_IMAGES)
+        log.info("Background: %s", image)
+        render(view, OUTPUT, Image.open(image).convert("RGB"))
+        url = self.pages.upload(OUTPUT, f"Prog {view['title']}: {view['done']}/{view['total']}")
+        log.info("Image published: %s", url)
 
     def update_now(self):
-        self.force = True
-        self.wake.set()
+        """Runs update() in the background (the menu stays usable) and reports the result."""
+        def run():
+            with self.lock:
+                try:
+                    self.update()
+                    self.notify("Image published.")
+                except Exception:
+                    log.exception("Error during the update")
+                    self.notify("Update failed: details in prog_tracker.log")
+        threading.Thread(target=run, daemon=True).start()
 
     def select(self, zone_id, encounter_id=None):
         self.cfg["zone_id"], self.cfg["encounter_id"] = zone_id, encounter_id
@@ -383,7 +250,6 @@ class Tracker:
 
 def run_tray(tracker):
     import pystray
-    from PIL import Image
 
     def zone_item(zone):
         if is_pick_one(zone):
@@ -411,11 +277,6 @@ def run_tray(tracker):
         setup_images()
         open_file(USER_IMAGES)
 
-    def quit_app(icon, item):
-        tracker.stop.set()
-        tracker.wake.set()
-        icon.stop()
-
     menu = pystray.Menu(
         pystray.MenuItem("Content", content_menu),
         pystray.MenuItem("Update now", lambda icon, item: tracker.update_now()),
@@ -432,10 +293,10 @@ def run_tray(tracker):
                          lambda icon, item: set_autostart(not autostart_enabled()),
                          checked=lambda item: autostart_enabled()),
         pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Quit", quit_app),
+        pystray.MenuItem("Quit", lambda icon, item: icon.stop()),
     )
     icon = pystray.Icon("fflogs_prog", Image.open(BUNDLE / "icon.ico"), "Prog FFLogs", menu)
-    threading.Thread(target=tracker.loop, daemon=True).start()
+    tracker.notify = icon.notify
     icon.run()
 
 
@@ -473,33 +334,23 @@ def write_setup(cfg):
 
 
 def selftest():
-    """Checks the executable without network access: embedded files, image folders, rendering,
-    process detection."""
+    """Checks the executable without network access: embedded files, image folders, rendering."""
     import pystray  # noqa: F401  (the tray library must be bundled)
     for template in (".env.example", "config.example.json"):
         assert (BUNDLE / template).read_text(encoding="utf-8")
-    from PIL import Image
     assert Image.open(BUNDLE / "icon.ico").size[0] > 0
     assert (BUNDLE / "fonts" / "lilita-one-regular.ttf").is_file()
     folders = DATA / "selftest-images"
     create_folders(folders)
-    assert (folders / "1_ultimates" / "6_fru_futures-rewritten").is_dir()
-    image, path = load_background("Selftest", "Selftest", None, False, folders, BUNDLED_IMAGES)
-    assert path and path.stem == "default", path
+    folder = fight_folder(folders, "Futures Rewritten", 2)
+    assert folder == folders / "1_ultimates" / "6_fru_futures-rewritten" / "p2", folder
+    image = background(folder, folders, BUNDLED_IMAGES)
+    assert image.stem == "default", image
     zone = {"id": 0, "name": "Selftest", "encounters": [{"id": 0, "name": "Boss"}]}
     pull = {"encounterID": 0, "kill": False, "fightPercentage": 42.0, "lastPhase": 1}
     out = DATA / "output" / "selftest.png"
-    render(compute(zone, [{"fights": [pull]}]), out, image)
+    render(compute(zone, [{"fights": [pull]}]), out, Image.open(image).convert("RGB"))
     assert out.stat().st_size > 0
-    if os.name == "nt":
-        own = Path(sys.executable).name
-        start = time.perf_counter()
-        names = running_process_names()
-        elapsed = (time.perf_counter() - start) * 1000
-        (DATA / "selftest.txt").write_text(          # read by the build (no console)
-            f"{len(names)} processes listed in {elapsed:.1f} ms\n", encoding="utf-8")
-        assert own.lower() in names, f"{own} missing from the process list"
-        assert isinstance(uploader_processes(), list)
     log.info("Selftest log line")                    # the log file must be written
     for handler in logging.getLogger().handlers:
         handler.flush()
@@ -534,17 +385,13 @@ def main():
         return
     tracker = Tracker(cfg)
     if args.once:
-        tracker.update(force=True)
-        if tracker.state.get("pending"):
-            message("Publication postponed (rate limit); the background tracker will publish it.")
-        else:
-            message(f"Image published: {tracker.pages.public_url}")
+        tracker.update()
+        message(f"Image published: {tracker.pages.public_url}")
         return
-    if cfg.get("autostart", True) and not tracker.state.get("autostart_set"):
+    state = read_json(STATE, {})
+    if cfg.get("autostart", True) and not state.get("autostart_set"):
         set_autostart(True)              # only once: the user can turn it off afterwards
-        tracker.state["autostart_set"] = True
-        tracker.save_state()
-    tracker.redraw_at_startup()
+        write_json(STATE, {"autostart_set": True})
     run_tray(tracker)
 
 

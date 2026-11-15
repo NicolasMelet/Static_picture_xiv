@@ -1,26 +1,17 @@
-"""Background images, stored locally in one folder per fight: nothing is downloaded from FFLogs.
+"""Background images: one folder per fight or per phase, one image per folder.
 
-Names follow the convention described in catalog.py (lowercase, "-" between words, "_" before
-the name). A fight's folder is found by its FFLogs name, the part after the last "_"
-("m11s_the-tyrant" for The Tyrant), wherever it is. Inside it:
-  - <anything>-p<n>.png is the image of phase n (e.g. fru-p3.png, howling-blade-p2.jpg);
-  - any other image is the fight's image.
-Ultimate: the current phase's image, otherwise default (no spoiler for phases not reached yet).
-Raid:     the current phase's image if any, otherwise the fight's image, otherwise default.
+A fight's folder is the one whose name ends with the fight's FFLogs name ("m11s_the-tyrant"
+for The Tyrant), wherever it is under the images folder. A fight with phases (every ultimate,
+M8S) has one subfolder per phase inside its folder: p1, p2, ...
+The first image found in the folder is used, otherwise default.jpg at the root.
 """
-import logging
 import re
 import unicodedata
 from pathlib import Path
 
-from PIL import Image
-
 import catalog
 
-log = logging.getLogger("prog")
 EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
-# Phase image file name (without extension): <anything>-p<n>, e.g. fru-p3 or dsr-dragon-king-p8.
-PHASE_PATTERN = re.compile(r"-p0*(\d+)$", re.IGNORECASE)
 
 README_TEXT = """prog fflogs - background images
 ==============================
@@ -30,110 +21,53 @@ README_TEXT = """prog fflogs - background images
   3_extremes         expansion > one folder per extreme trial
   4_other-content    fights missing from the catalog (created automatically)
 
-Naming convention: lowercase, no spaces, words joined with "-", "_" before the name.
-  - folder:  <order or code>_<fflogs-name>     e.g. 6_fru_futures-rewritten, m11s_the-tyrant
-             the part after the last "_" is the fight's FFLogs name: keep it
-  - files:   <anything>-p<n>.<ext>             image of phase n, e.g. fru-p3.png
-             any other name                    image of the fight, e.g. tyrant.png
-  - extensions: .png, .jpg, .jpeg, .webp
+One folder = one image. Put a single image (.png, .jpg, .jpeg, .webp, any name) in:
+  - the fight's folder                      e.g. m11s_the-tyrant/tyrant.png
+  - or, for a fight with phases, the phase's subfolder p1, p2, ... of the fight's folder
+                                            e.g. 6_fru_futures-rewritten/p3/oracle.png
 
-Which image is used:
-  - ultimate: the -p<n> image of the current phase, otherwise default.jpg
-    (add the phase images one by one as you reach them: no spoiler)
-  - raid:     the fight image, otherwise default.jpg; a boss with FFLogs phase data
-    (M8S Howling Blade) can also have -p1 and -p2 images
-  - default.jpg / default.png here, at the root, replaces the bundled kitten
+Fights with phases: every ultimate, and a savage boss recorded by FFLogs as one fight with
+two phases (m8s_howling-blade/p1 and p2). M12S is two FFLogs fights, so it has two folders:
+m12s-1_lindwurm (phase 1) and m12s-2_lindwurm-ii (phase 2).
+
+The folder of the current fight or phase is created on update when it does not exist yet;
+you can also create p1, p2, ... yourself beforehand. The end of a fight folder's name (after
+the last "_") is the fight's FFLogs name: keep it.
+
+No image in the folder: default.jpg (or default.png) of this folder is used, otherwise the
+bundled kitten.
 
 Recommended size: 850 x 450 (or larger with the same ratio); otherwise it is center-cropped.
 """
 
 
 def slug(text):
-    """Name following the convention: lowercase ASCII words joined with "-"."""
+    """Folder name of a fight: lowercase ASCII words joined with "-"."""
     text = text.replace("æ", "ae").replace("Æ", "AE").replace("&", " and ")
     text = re.sub(r"['’]", "", text)                    # Dragonsong's -> dragonsongs
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
-    return re.sub(r"[^a-z0-9]+", "-", text).strip("-") or "unnamed"
+    return re.sub(r"[^a-z0-9]+", "-", text).strip("-")
 
 
-def normalize(text):
-    """Comparable form of a fight name: its slug without a leading "the"."""
-    return re.sub(r"^the-", "", slug(text))
+def fight_folder(root, fight_name, phase=None):
+    """Folder of a fight, or of one of its phases (subfolder p<n>); created if missing."""
+    wanted = slug(fight_name).removeprefix("the-")
+    folder = next(
+        (f for f in sorted(Path(root).rglob("*"))
+         if f.is_dir() and slug(f.name.rsplit("_", 1)[-1]).removeprefix("the-") == wanted),
+        Path(root) / catalog.OTHER / slug(fight_name))
+    if phase:
+        folder = folder / f"p{phase}"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
 
 
-def category_of(zone_name):
-    """Catalog category matching an FFLogs zone name."""
-    zone_name = zone_name.lower()
-    if "ultimate" in zone_name:
-        return catalog.ULTIMATES
-    if "savage" in zone_name:
-        return catalog.SAVAGE
-    if "extreme" in zone_name or "trial" in zone_name:
-        return catalog.EXTREMES
-    return None
-
-
-def find_fight_folder(root, fight_name, category=None):
-    """Folder of a fight. Ranking: same name before name contained in the folder name, right
-    category first, fight folders before tier folders, then the shortest name."""
-    root = Path(root)
-    wanted = normalize(fight_name)
-    if not root.is_dir() or not wanted:
-        return None
-    best = None
-    for folder in root.rglob("*"):
-        if not folder.is_dir():
-            continue
-        key = normalize(folder.name.rsplit("_", 1)[-1])
-        if key == wanted:
-            score = 0
-        elif len(wanted) >= 4 and f"-{wanted}-" in f"-{key}-":
-            score = 2
-        else:
-            continue
-        if category and folder.relative_to(root).parts[0] != category:
-            score += 10
-        if any(child.is_dir() for child in folder.iterdir()):
-            score += 1                           # a tier folder (it contains fights)
-        candidate = (score, len(folder.name), str(folder))
-        if best is None or candidate < best[0]:
-            best = (candidate, folder)
-    return best[1] if best else None
-
-
-def phase_of(path):
-    match = PHASE_PATTERN.search(path.stem)
-    return int(match.group(1)) if match else None
-
-
-def background_path(fight_name, zone_name, phase, ultimate, user_root, bundled_root):
-    """Image to use: see the module docstring. The user's images win over the bundled ones."""
-    category = catalog.ULTIMATES if ultimate else category_of(zone_name)
-    for root in (Path(user_root), Path(bundled_root)):
-        folder = find_fight_folder(root, fight_name, category)
-        if not folder:
-            continue
-        images = sorted(p for p in folder.iterdir()
-                        if p.is_file() and p.suffix.lower() in EXTENSIONS)
-        phase_images = [p for p in images if phase and phase_of(p) == phase]
-        fight_images = [] if ultimate else [p for p in images if phase_of(p) is None]
-        if phase_images or fight_images:
-            return (phase_images or fight_images)[0]
-    for root in (Path(user_root), Path(bundled_root)):
-        for extension in EXTENSIONS:
-            if (Path(root) / f"default{extension}").is_file():
-                return Path(root) / f"default{extension}"
-    return None
-
-
-def load_background(fight_name, zone_name, phase, ultimate, user_root, bundled_root):
-    path = background_path(fight_name, zone_name, phase, ultimate, user_root, bundled_root)
-    if path:
-        try:
-            return Image.open(path).convert("RGB"), path
-        except Exception as e:
-            log.warning("Unreadable image %s: %s", path, e)
-    return None, None
+def background(folder, *default_roots):
+    """First image of the folder, otherwise the first default image of the given roots."""
+    candidates = sorted(folder.iterdir())
+    for root in default_roots:
+        candidates += sorted(Path(root).glob("default.*"))
+    return next(path for path in candidates if path.suffix.lower() in EXTENSIONS)
 
 
 def create_folders(root):
@@ -141,13 +75,4 @@ def create_folders(root):
     root = Path(root)
     for relative in catalog.folders():
         (root / relative).mkdir(parents=True, exist_ok=True)
-    readme = root / "readme.txt"
-    if not readme.exists() or readme.read_text(encoding="utf-8") != README_TEXT:
-        readme.write_text(README_TEXT, encoding="utf-8")
-
-
-def ensure_fight_folder(root, zone_name, fight_name):
-    """Creates <other-content>/<zone>/<fight> for a fight that has no folder yet."""
-    if not find_fight_folder(root, fight_name, category_of(zone_name)):
-        (Path(root) / catalog.OTHER / slug(zone_name) / slug(fight_name)).mkdir(
-            parents=True, exist_ok=True)
+    (root / "readme.txt").write_text(README_TEXT, encoding="utf-8")

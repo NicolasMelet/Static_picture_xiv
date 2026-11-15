@@ -10,11 +10,6 @@
   "github": {
     "repo": "NicolasMelet/Static_picture_xiv",
     "branch": "gh-pages",
-    "path": "prog.png",
-    "min_publish_seconds": 600
-  },
-  "poll": {
-    "active_seconds": 300,
-    "process_check_seconds": 30
+    "path": "prog.png"
   }
 }
