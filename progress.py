@@ -91,14 +91,12 @@ def best_percent(pulls, key="fightPercentage"):
 
 
 def last_boss_counts_twice(fights):
-    """Savage: a two-phase last boss counts twice (Arcadion, 4 fights -> X/5).
-    Pandaemonium already splits its last boss into two FFLogs fights, so nothing to add there."""
-    if len(fights) < 2:
+    """Savage: a two-phase last boss counts twice (4 fights -> X/5). A tier of 5 fights
+    (Pandaemonium, AAC Heavyweight) already splits its last boss in two, so nothing to add."""
+    if len(fights) != 4:
         return False
     last = fights[-1]
-    if last["phases"]:
-        return len(real_phases(last)) >= 2
-    return len(fights) == 4
+    return not last["phases"] or len(real_phases(last)) >= 2
 
 
 def _raid(fights):
@@ -111,14 +109,14 @@ def _raid(fights):
     if last_boss_counts_twice(fights):
         total += 1
         last = fights[-1]
-        if killed[-1]:
+        in_phase_2 = [p for p in last["pulls"] if phases_cleared(last, p) >= 1]
+        if killed[-1] or (current is last and in_phase_2):
             done += 1
-        elif current is last:
-            in_phase_2 = [p for p in last["pulls"] if phases_cleared(last, p) >= 1]
-            phase = 2 if in_phase_2 else 1
-            done += phase - 1
-            # Phase 2: best % is the boss health reached on pulls that got there.
-            best = best_percent(in_phase_2, "bossPercentage") if in_phase_2 else best
+        if current is last:
+            if in_phase_2:          # best % is the boss health reached on pulls that got there
+                best = best_percent(in_phase_2, "bossPercentage")
+            if last["phases"]:      # FFLogs phase data (M8S): one image folder per phase
+                phase = 2 if in_phase_2 else 1
 
     return {
         "mode": "raid",
